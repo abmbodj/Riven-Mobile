@@ -20,10 +20,12 @@ import {
     Trash2,
     X,
     Check,
+    BookOpen,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../../src/stores/themeStore';
 import { api, Card } from '../../../src/lib/api';
-import { spacing, radii, fontSize, cardShadow } from '../../../src/constants/tokens';
+import { fonts, spacing, radii, fontSize, botanical, cardShadow } from '../../../src/constants/tokens';
+import GlobalBackground from '../../../src/components/GlobalBackground';
 
 export default function DeckViewScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -120,37 +122,53 @@ export default function DeckViewScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
+            <GlobalBackground />
             {/* Header */}
             <View style={styles.header}>
-                <Pressable onPress={() => router.back()} hitSlop={12}>
-                    <ArrowLeft size={24} color={colors.text} />
+                <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backButton}>
+                    <ArrowLeft size={24} color={colors.textSecondary} />
                 </Pressable>
                 <View style={styles.headerCenter}>
                     <Text style={styles.title} numberOfLines={1}>{deck.title}</Text>
-                    <Text style={styles.cardCount}>{deck.cards?.length || 0} cards</Text>
+                    <Text style={styles.deckSubtitle} numberOfLines={1}>
+                        {deck.description || 'No description'} · {deck.cards?.length || 0} cards
+                    </Text>
                 </View>
-                <View style={{ width: 24 }} />
+                <View style={{ width: 44 }} />
             </View>
 
             {/* Action Buttons */}
-            {deck.cards && deck.cards.length > 0 && (
-                <View style={styles.actions}>
-                    <Pressable
-                        style={({ pressed }) => [styles.actionButton, styles.studyButton, pressed && styles.actionButtonPressed]}
-                        onPress={() => router.push(`/deck/${deckId}/study`)}
-                    >
-                        <Play size={18} color="#1a1a18" />
-                        <Text style={styles.actionButtonText}>Study</Text>
-                    </Pressable>
-                    <Pressable
-                        style={({ pressed }) => [styles.actionButton, styles.testButton, pressed && styles.actionButtonPressed]}
-                        onPress={() => router.push(`/deck/${deckId}/test`)}
-                    >
-                        <ClipboardCheck size={18} color={colors.accent} />
-                        <Text style={[styles.actionButtonText, { color: colors.accent }]}>Test</Text>
-                    </Pressable>
-                </View>
-            )}
+            {/* Action Buttons */}
+            <View style={styles.actions}>
+                <Pressable
+                    style={({ pressed }) => [
+                        styles.actionButton,
+                        deck?.cards?.length > 0 ? styles.studyButton : styles.studyButtonDisabled,
+                        pressed && deck?.cards?.length > 0 && styles.actionButtonPressed
+                    ]}
+                    onPress={() => {
+                        if (deck?.cards?.length > 0) router.push(`/deck/${deckId}/study`);
+                        else Alert.alert('Notice', 'Add some cards first');
+                    }}
+                >
+                    <BookOpen size={20} color={deck?.cards?.length > 0 ? botanical.parchment : 'rgba(244, 241, 232, 0.7)'} />
+                    <Text style={[styles.actionButtonText, deck?.cards?.length === 0 && { color: 'rgba(244, 241, 232, 0.7)' }]}>Study</Text>
+                </Pressable>
+                <Pressable
+                    style={({ pressed }) => [
+                        styles.actionButton,
+                        deck?.cards?.length >= 4 ? styles.testButton : styles.testButtonDisabled,
+                        pressed && deck?.cards?.length >= 4 && styles.actionButtonPressed
+                    ]}
+                    onPress={() => {
+                        if (deck?.cards?.length >= 4) router.push(`/deck/${deckId}/test`);
+                        else Alert.alert('Notice', 'Need 4+ cards for test mode');
+                    }}
+                >
+                    <Play size={20} color={deck?.cards?.length >= 4 ? botanical.parchment : colors.textSecondary} />
+                    <Text style={[styles.actionButtonText, deck?.cards?.length >= 4 ? { color: botanical.parchment } : { color: colors.textSecondary }]}>Test</Text>
+                </Pressable>
+            </View>
 
             {/* Card List */}
             <FlashList
@@ -226,102 +244,187 @@ export default function DeckViewScreen() {
 
 function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors']) {
     return StyleSheet.create({
-        container: { flex: 1, backgroundColor: 'transparent' },
+        container: { flex: 1, backgroundColor: botanical.ink },
         loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-        errorText: { fontSize: fontSize.lg, color: colors.textSecondary },
+        errorText: { fontSize: fontSize.lg, color: colors.textSecondary, fontFamily: fonts.body },
         header: {
             flexDirection: 'row',
             alignItems: 'center',
             paddingHorizontal: spacing.md,
-            paddingVertical: spacing.md,
-            gap: spacing.md,
+            paddingVertical: spacing.lg,
+            gap: spacing.sm,
+            marginBottom: spacing.md,
+            minHeight: 80,
         },
-        headerCenter: { flex: 1 },
-        title: { fontSize: fontSize.xl, fontWeight: '700', color: colors.text },
-        cardCount: { fontSize: fontSize.xs, color: colors.textSecondary },
+        backButton: {
+            padding: spacing.xs,
+            marginLeft: -spacing.xs,
+            height: '100%',
+            justifyContent: 'center',
+        },
+        headerCenter: {
+            flex: 1,
+            justifyContent: 'center',
+            flexShrink: 1,
+        },
+        title: {
+            fontFamily: fonts.displayBold,
+            fontSize: fontSize['3xl'],
+            color: botanical.parchment,
+            marginBottom: 4,
+        },
+        deckSubtitle: {
+            fontFamily: fonts.body,
+            fontSize: fontSize.sm,
+            color: colors.textSecondary,
+        },
         actions: {
             flexDirection: 'row',
             paddingHorizontal: spacing.md,
-            paddingBottom: spacing.md,
-            gap: spacing.sm,
+            paddingBottom: spacing.xl,
+            gap: spacing.md,
         },
         actionButton: {
             flex: 1,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            paddingVertical: spacing.sm + 2,
-            borderRadius: radii.md,
+            paddingVertical: spacing.lg,
+            borderRadius: radii.xl,
             gap: spacing.sm,
+            ...cardShadow,
         },
-        actionButtonPressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
-        studyButton: { backgroundColor: colors.accent },
-        testButton: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.accent },
-        actionButtonText: { fontSize: fontSize.md, fontWeight: '600', color: '#1a1a18' },
-        sectionTitle: { fontSize: fontSize.sm, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1 },
+        studyButton: {
+            backgroundColor: botanical.forest,
+            borderWidth: 1,
+            borderColor: 'rgba(122, 158, 114, 0.2)',
+        },
+        studyButtonDisabled: {
+            backgroundColor: 'rgba(122, 158, 114, 0.5)',
+            borderWidth: 1,
+            borderColor: 'transparent',
+        },
+        testButton: {
+            backgroundColor: 'rgba(252, 250, 242, 0.05)',
+            borderWidth: 1,
+            borderColor: 'rgba(209, 201, 184, 0.3)',
+        },
+        testButtonDisabled: {
+            backgroundColor: 'transparent',
+            borderWidth: 1,
+            borderColor: 'transparent',
+        },
+        actionButtonPressed: {
+            transform: [{ scale: 0.98 }],
+        },
+        actionButtonText: {
+            fontFamily: fonts.display,
+            fontWeight: '600',
+            fontSize: fontSize.lg,
+            letterSpacing: 0.5,
+        },
+        sectionTitle: {
+            fontFamily: fonts.monoBold,
+            fontSize: fontSize.sm,
+            color: colors.textSecondary,
+            textTransform: 'uppercase',
+            letterSpacing: 1.5,
+            marginLeft: spacing.xs,
+        },
         cardItem: {
             flexDirection: 'row',
-            backgroundColor: colors.surface,
-            borderRadius: radii.md,
-            padding: spacing.md,
+            backgroundColor: 'rgba(252, 250, 242, 0.05)',
+            borderRadius: radii.lg,
+            padding: spacing.lg,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: 'rgba(255,255,255,0.05)',
             alignItems: 'center',
         },
-        cardContent: { flex: 1, gap: spacing.xs },
-        cardFront: { fontSize: fontSize.md, fontWeight: '600', color: colors.text },
-        cardDivider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.xs },
-        cardBack: { fontSize: fontSize.sm, color: colors.textSecondary },
-        deleteButton: { padding: spacing.sm },
-        emptyCards: { paddingVertical: spacing.xl, alignItems: 'center' },
-        emptyText: { fontSize: fontSize.md, color: colors.textSecondary, textAlign: 'center' },
+        cardContent: { flex: 1, gap: spacing.md },
+        cardFront: {
+            fontFamily: fonts.body,
+            fontSize: fontSize.md,
+            color: botanical.parchment,
+        },
+        cardDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: spacing.xs },
+        cardBack: {
+            fontFamily: fonts.body,
+            fontSize: fontSize.md,
+            color: colors.textSecondary,
+        },
+        deleteButton: { padding: spacing.sm, marginLeft: spacing.sm },
+        emptyCards: { paddingVertical: spacing['2xl'], alignItems: 'center' },
+        emptyText: {
+            fontFamily: fonts.body,
+            fontSize: fontSize.md,
+            color: colors.textSecondary,
+            textAlign: 'center',
+            lineHeight: 24,
+        },
         fab: {
             position: 'absolute',
-            bottom: spacing.lg,
-            right: spacing.lg,
-            width: 56,
-            height: 56,
-            borderRadius: 28,
+            bottom: spacing['2xl'],
+            right: spacing.xl,
+            width: 60,
+            height: 60,
+            borderRadius: 30,
             backgroundColor: colors.accent,
             justifyContent: 'center',
             alignItems: 'center',
             ...cardShadow,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.2)',
         },
         addCardForm: {
             position: 'absolute',
             bottom: 0,
             left: 0,
             right: 0,
-            backgroundColor: colors.surface,
-            borderTopLeftRadius: radii.xl,
-            borderTopRightRadius: radii.xl,
-            padding: spacing.lg,
+            backgroundColor: botanical.ink,
+            borderTopLeftRadius: radii['2xl'],
+            borderTopRightRadius: radii['2xl'],
+            padding: spacing.xl,
             gap: spacing.md,
             borderTopWidth: 1,
-            borderColor: colors.border,
+            borderColor: 'rgba(255,255,255,0.1)',
             ...cardShadow,
+            shadowOffset: { width: 0, height: -8 },
+            shadowRadius: 24,
         },
-        addCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-        addCardTitle: { fontSize: fontSize.lg, fontWeight: '600', color: colors.text },
+        addCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
+        addCardTitle: {
+            fontFamily: fonts.displayBold,
+            fontSize: fontSize.xl,
+            color: botanical.parchment,
+        },
         addCardInput: {
-            backgroundColor: colors.bg,
+            backgroundColor: 'rgba(0,0,0,0.2)',
             borderRadius: radii.md,
             padding: spacing.md,
+            paddingTop: spacing.md,
+            fontFamily: fonts.body,
             fontSize: fontSize.md,
-            color: colors.text,
-            minHeight: 50,
+            color: botanical.parchment,
+            minHeight: 80,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: 'rgba(255,255,255,0.05)',
+            textAlignVertical: 'top',
         },
         addCardSubmit: {
             flexDirection: 'row',
-            backgroundColor: colors.accent,
-            borderRadius: radii.md,
-            paddingVertical: spacing.md,
+            backgroundColor: botanical.forest,
+            borderRadius: radii.lg,
+            paddingVertical: spacing.md + 4,
             alignItems: 'center',
             justifyContent: 'center',
             gap: spacing.sm,
+            marginTop: spacing.md,
         },
-        addCardSubmitText: { fontSize: fontSize.md, fontWeight: '700', color: '#1a1a18' },
+        addCardSubmitText: {
+            fontFamily: fonts.displayBold,
+            fontSize: fontSize.md,
+            color: '#ffffff',
+            letterSpacing: 1,
+        },
     });
 }

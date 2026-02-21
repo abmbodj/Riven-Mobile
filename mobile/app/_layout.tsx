@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import GlobalBackground from '../src/components/GlobalBackground';
 import {
+    CormorantGaramond_300Light,
     CormorantGaramond_400Regular,
     CormorantGaramond_400Regular_Italic,
     CormorantGaramond_600SemiBold,
@@ -95,6 +96,7 @@ export default function RootLayout() {
     const colors = useThemeStore((s) => s.colors);
 
     const [fontsLoaded, fontError] = useFonts({
+        CormorantGaramond_300Light,
         CormorantGaramond_400Regular,
         CormorantGaramond_400Regular_Italic,
         CormorantGaramond_600SemiBold,

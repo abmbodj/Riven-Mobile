@@ -1,28 +1,64 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, ImageBackground } from 'react-native';
+import { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, User as UserIcon } from 'lucide-react-native';
+import { ArrowLeft, MessageCircle, UserPlus, UserMinus, Check, X, Clock, Layers, Calendar, Copy, User as UserIcon, Shield } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useThemeStore } from '../../src/stores/themeStore';
 import { api } from '../../src/lib/api';
-import { fonts, spacing, radii, fontSize, botanical, cardShadow } from '../../src/constants/tokens';
+import { fonts, spacing, radii, fontSize, cardShadow } from '../../src/constants/tokens';
 
 export default function UserProfileScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const colors = useThemeStore((s) => s.colors);
     const router = useRouter();
+    const queryClient = useQueryClient();
 
-    const { data: userProfile, isLoading, isError } = useQuery({
+    const [copied, setCopied] = useState(false);
+
+    const { data: profile, isLoading, isError } = useQuery({
         queryKey: ['user', id],
         queryFn: () => api.getUserProfile(parseInt(id)),
     });
 
+    const sendRequest = useMutation({
+        mutationFn: () => api.sendFriendRequest(parseInt(id)),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['user', id] });
+        },
+    });
+
+    const acceptRequest = useMutation({
+        mutationFn: () => api.acceptFriendRequest(parseInt(id)),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['user', id] });
+            queryClient.invalidateQueries({ queryKey: ['friends'] });
+        },
+    });
+
+    const removeFriend = useMutation({
+        mutationFn: () => api.removeFriend(parseInt(id)),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['user', id] });
+            queryClient.invalidateQueries({ queryKey: ['friends'] });
+        },
+    });
+
+    const copyShareCode = async () => {
+        if (profile?.shareCode) {
+            await Clipboard.setStringAsync(profile.shareCode);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
     const styles = makeStyles(colors);
 
-    // Re-use logic for garden stage based on profile's petCustomization or streak
-    const getDisplayStage = () => {
-        if (!userProfile) return null;
-        return userProfile.petCustomization ? 'Overridden Stage' : `${userProfile.streak || 0} Days`;
+    const formatDate = (dateString?: string) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
     };
 
     if (isLoading) {
@@ -33,7 +69,7 @@ export default function UserProfileScreen() {
         );
     }
 
-    if (isError || !userProfile) {
+    if (isError || !profile) {
         return (
             <SafeAreaView style={styles.container}>
                 <View style={styles.empty}>
@@ -47,60 +83,146 @@ export default function UserProfileScreen() {
         );
     }
 
+    const isFriend = profile.friendshipStatus === 'accepted';
+    const isPendingOutgoing = profile.friendshipStatus === 'pending' && profile.friendshipDirection === 'outgoing';
+    const isPendingIncoming = profile.friendshipStatus === 'pending' && profile.friendshipDirection === 'incoming';
+    const isActionLoading = sendRequest.isPending || acceptRequest.isPending || removeFriend.isPending;
+
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
+            {/* Header */}
             <View style={styles.header}>
-                <Pressable onPress={() => router.back()} hitSlop={12}>
+                <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backButton}>
                     <ArrowLeft size={24} color={colors.text} />
                 </Pressable>
-                <Text style={styles.headerTitle}>Researcher Profile</Text>
+                <Text style={styles.headerTitle}>Profile</Text>
                 <View style={{ width: 24 }} />
             </View>
 
             <ScrollView contentContainerStyle={styles.scroll}>
-                <View style={styles.profileCard}>
-                    <ImageBackground
-                        source={{ uri: 'https://www.transparenttextures.com/patterns/natural-paper.png' }}
-                        style={StyleSheet.absoluteFill}
-                        imageStyle={{ opacity: 0.5 }}
-                    />
-                    <View style={styles.tapeAccent} />
-
-                    <View style={styles.profileContent}>
-                        <View style={styles.avatar}>
-                            {userProfile.avatar ? (
-                                <UserIcon size={32} color={botanical.forest} />
-                            ) : (
-                                <Text style={styles.avatarText}>
-                                    {userProfile.username?.charAt(0).toUpperCase() || '?'}
-                                </Text>
-                            )}
-                        </View>
-                        <Text style={styles.username}>{userProfile.username}</Text>
-
-                        {userProfile.role && userProfile.role !== 'user' && (
-                            <View style={styles.roleBadge}>
-                                <Text style={styles.roleBadgeText}>
-                                    {userProfile.role.toUpperCase()}
-                                </Text>
-                            </View>
+                {/* User Info */}
+                <View style={styles.userInfo}>
+                    <View style={styles.avatar}>
+                        {profile.avatar ? (
+                            <UserIcon size={32} color={colors.text} /> // Fallback if no avatar URL loading
+                        ) : (
+                            <Text style={styles.avatarText}>
+                                {profile.username?.charAt(0).toUpperCase() || '?'}
+                            </Text>
                         )}
+                    </View>
 
-                        <View style={styles.statsRow}>
-                            <View style={styles.statBox}>
-                                <Text style={styles.statValue}>{userProfile.stats?.decksCreated || 0}</Text>
-                                <Text style={styles.statLabel}>DECKS</Text>
+                    <View style={styles.nameRow}>
+                        <Text style={styles.username}>{profile.username}</Text>
+                        {profile.isOwner ? (
+                            <View style={[styles.roleBadge, { backgroundColor: '#f59e0b' }]}>
+                                <Text style={styles.roleBadgeText}>OWNER</Text>
                             </View>
-                            <View style={styles.statDivider} />
-                            <View style={styles.statBox}>
-                                <Text style={styles.statValue}>{getDisplayStage()}</Text>
-                                <Text style={styles.statLabel}>GARDEN</Text>
+                        ) : profile.isAdmin ? (
+                            <View style={[styles.roleBadge, { backgroundColor: '#ef4444' }]}>
+                                <Text style={styles.roleBadgeText}>ADMIN</Text>
                             </View>
+                        ) : null}
+                    </View>
+
+                    {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
+                </View>
+
+                {/* Stats */}
+                <View style={styles.statsRow}>
+                    <View style={styles.statBox}>
+                        <View style={styles.statIconRow}>
+                            <Layers size={20} color={colors.accent} />
+                            <Text style={styles.statValue}>{profile.deckCount || 0}</Text>
                         </View>
-
-                        {userProfile.bio ? <Text style={styles.bio}>{userProfile.bio}</Text> : null}
+                        <Text style={styles.statLabel}>DECKS</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                        <View style={styles.statIconRow}>
+                            <Calendar size={16} color={colors.textSecondary} />
+                            <Text style={[styles.statValue, { fontSize: fontSize.sm, color: colors.textSecondary }]}>
+                                {formatDate(profile.createdAt)}
+                            </Text>
+                        </View>
+                        <Text style={styles.statLabel}>JOINED</Text>
                     </View>
                 </View>
+
+                {/* Actions */}
+                <View style={styles.actionsRow}>
+                    {isFriend ? (
+                        <>
+                            <Pressable
+                                style={styles.primaryBtn}
+                                onPress={() => router.push(`/messages/${profile.id}` as any)}
+                            >
+                                <MessageCircle size={20} color="#fff" />
+                                <Text style={styles.primaryBtnText}>Message</Text>
+                            </Pressable>
+                            <Pressable
+                                style={styles.dangerBtn}
+                                onPress={() => removeFriend.mutate()}
+                                disabled={isActionLoading}
+                            >
+                                <UserMinus size={20} color="#ef4444" />
+                            </Pressable>
+                        </>
+                    ) : isPendingIncoming ? (
+                        <>
+                            <Pressable
+                                style={[styles.primaryBtn, { backgroundColor: '#22c55e' }]}
+                                onPress={() => acceptRequest.mutate()}
+                                disabled={isActionLoading}
+                            >
+                                <Check size={20} color="#fff" />
+                                <Text style={styles.primaryBtnText}>Accept Request</Text>
+                            </Pressable>
+                            <Pressable
+                                style={styles.dangerBtn}
+                                onPress={() => removeFriend.mutate()}
+                                disabled={isActionLoading}
+                            >
+                                <X size={20} color="#ef4444" />
+                            </Pressable>
+                        </>
+                    ) : isPendingOutgoing ? (
+                        <Pressable
+                            style={styles.outlineBtn}
+                            onPress={() => removeFriend.mutate()}
+                            disabled={isActionLoading}
+                        >
+                            <Clock size={20} color={colors.textSecondary} />
+                            <Text style={styles.outlineBtnText}>Request Pending</Text>
+                        </Pressable>
+                    ) : (
+                        <Pressable
+                            style={styles.primaryBtn}
+                            onPress={() => sendRequest.mutate()}
+                            disabled={isActionLoading}
+                        >
+                            <UserPlus size={20} color="#fff" />
+                            <Text style={styles.primaryBtnText}>Add Friend</Text>
+                        </Pressable>
+                    )}
+                </View>
+
+                {/* Share Code */}
+                {profile.shareCode && (
+                    <View style={styles.shareCard}>
+                        <View style={styles.shareRow}>
+                            <View>
+                                <Text style={styles.shareLabel}>SHARE CODE</Text>
+                                <Text style={styles.shareCodeText}>{profile.shareCode}</Text>
+                            </View>
+                            <Pressable style={styles.copyBtn} onPress={copyShareCode}>
+                                {copied ? <Check size={20} color="#22c55e" /> : <Copy size={20} color={colors.text} />}
+                            </Pressable>
+                        </View>
+                        <Text style={styles.shareDesc}>
+                            Use this code to find and share decks with {profile.username}
+                        </Text>
+                    </View>
+                )}
             </ScrollView>
         </SafeAreaView>
     );
@@ -108,56 +230,68 @@ export default function UserProfileScreen() {
 
 function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors']) {
     return StyleSheet.create({
-        container: { flex: 1, backgroundColor: 'transparent' },
-        scroll: { paddingHorizontal: spacing.md, paddingVertical: spacing.lg, gap: spacing.lg },
+        container: { flex: 1, backgroundColor: colors.bg },
+        scroll: { paddingHorizontal: spacing.md, paddingBottom: spacing['3xl'] },
         header: {
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-            paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+            paddingHorizontal: spacing.md, paddingVertical: spacing.md,
         },
-        headerTitle: { fontFamily: fonts.bodyBold, fontSize: fontSize.lg, color: colors.text },
+        backButton: { padding: spacing.xs, marginLeft: -spacing.xs },
+        headerTitle: { fontFamily: fonts.displayBold, fontSize: fontSize.xl, color: colors.text },
+
         empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
         emptyTitle: { fontFamily: fonts.monoBold, fontSize: fontSize.lg, color: colors.text, marginBottom: spacing.md, letterSpacing: 2 },
         emptyDesc: { fontFamily: fonts.body, fontSize: fontSize.md, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.xl },
         backBtn: { padding: spacing.md, backgroundColor: colors.surface, borderRadius: radii.md, borderWidth: 1, borderColor: colors.border },
         backBtnText: { fontFamily: fonts.mono, fontSize: fontSize.sm, color: colors.text },
-        profileCard: {
-            backgroundColor: botanical.paper,
-            borderRadius: radii.xl,
-            overflow: 'hidden',
-            borderWidth: 1,
-            borderColor: botanical.tapePin + '60',
-            position: 'relative',
-            ...cardShadow,
-        },
-        tapeAccent: {
-            position: 'absolute', top: -1, left: '30%',
-            width: 40, height: 12, backgroundColor: botanical.tape,
-            transform: [{ rotate: '-2deg' }], borderRadius: 2, zIndex: 10, opacity: 0.7,
-        },
-        profileContent: {
-            alignItems: 'center', padding: spacing.xl, paddingTop: spacing.xl + 8, zIndex: 5,
-        },
+
+        // Info
+        userInfo: { alignItems: 'center', marginBottom: spacing.xl, marginTop: spacing.md },
         avatar: {
-            width: 72, height: 72, borderRadius: 36,
-            backgroundColor: botanical.forest + '20', justifyContent: 'center', alignItems: 'center',
-            marginBottom: spacing.md, borderWidth: 2, borderColor: botanical.forest,
+            width: 96, height: 96, borderRadius: 48, backgroundColor: colors.surface,
+            borderWidth: 2, borderColor: colors.border, justifyContent: 'center', alignItems: 'center',
+            marginBottom: spacing.md
         },
-        avatarText: { fontFamily: fonts.displayBold, fontSize: fontSize['2xl'], color: botanical.forest },
-        username: { fontFamily: fonts.displayBoldItalic, fontSize: fontSize['3xl'], color: botanical.ink, marginBottom: spacing.md },
-        roleBadge: {
-            backgroundColor: colors.accent + '20', paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
-            borderRadius: radii.full, marginBottom: spacing.lg,
+        avatarText: { fontFamily: fonts.displayBold, fontSize: 36, color: colors.text },
+        nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
+        username: { fontFamily: fonts.displayBold, fontSize: fontSize['3xl'], color: colors.text },
+        roleBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radii.full },
+        roleBadgeText: { fontFamily: fonts.monoBold, fontSize: 10, color: '#fff', letterSpacing: 1 },
+        bio: { fontFamily: fonts.body, fontSize: fontSize.md, color: colors.textSecondary, textAlign: 'center', maxWidth: 280, marginTop: spacing.sm },
+
+        // Stats
+        statsRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing['3xl'], marginBottom: spacing.xl },
+        statBox: { alignItems: 'center' },
+        statIconRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: 2 },
+        statValue: { fontFamily: fonts.bodyBold, fontSize: fontSize.xl, color: colors.text },
+        statLabel: { fontFamily: fonts.mono, fontSize: 10, color: colors.textSecondary, letterSpacing: 1.5 },
+
+        // Actions
+        actionsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.xl },
+        primaryBtn: {
+            flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+            backgroundColor: colors.accent, borderRadius: radii.xl, paddingVertical: 14
         },
-        roleBadgeText: { fontFamily: fonts.monoBold, fontSize: 10, color: colors.accent, letterSpacing: 1 },
-        statsRow: {
-            flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-            backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: radii.lg, padding: spacing.md,
-            width: '100%', marginBottom: spacing.lg,
+        primaryBtnText: { fontFamily: fonts.bodyBold, fontSize: fontSize.md, color: '#fff' },
+        dangerBtn: {
+            paddingHorizontal: spacing.xl, backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            borderRadius: radii.xl, justifyContent: 'center', alignItems: 'center'
         },
-        statBox: { flex: 1, alignItems: 'center' },
-        statValue: { fontFamily: 'Lora_700Bold', fontSize: fontSize.lg, color: botanical.ink },
-        statLabel: { fontFamily: fonts.mono, fontSize: 9, color: botanical.ink + '80', letterSpacing: 1, marginTop: 4 },
-        statDivider: { width: 1, height: 24, backgroundColor: botanical.tapePin + '40' },
-        bio: { fontFamily: fonts.bodyItalic, fontSize: fontSize.md, color: botanical.ink + '90', textAlign: 'center', lineHeight: 22 },
+        outlineBtn: {
+            flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+            backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radii.xl, paddingVertical: 14
+        },
+        outlineBtnText: { fontFamily: fonts.bodyBold, fontSize: fontSize.md, color: colors.textSecondary },
+
+        // Share Code
+        shareCard: {
+            backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+            borderRadius: radii.xl, padding: spacing.md
+        },
+        shareRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
+        shareLabel: { fontFamily: fonts.mono, fontSize: 10, color: colors.textSecondary, letterSpacing: 1.5, marginBottom: 4 },
+        shareCodeText: { fontFamily: fonts.monoBold, fontSize: fontSize.xl, letterSpacing: 3, color: colors.text },
+        copyBtn: { padding: spacing.sm, backgroundColor: colors.bg, borderRadius: radii.lg },
+        shareDesc: { fontFamily: fonts.body, fontSize: fontSize.xs, color: colors.textSecondary }
     });
 }

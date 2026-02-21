@@ -23,6 +23,7 @@ import {
 import { useThemeStore } from '../../src/stores/themeStore';
 import { api, Deck } from '../../src/lib/api';
 import { fonts, spacing, radii, fontSize, botanical, cardShadow } from '../../src/constants/tokens';
+import GlobalBackground from '../../src/components/GlobalBackground';
 
 export default function HomeScreen() {
     const colors = useThemeStore((s) => s.colors);
@@ -106,6 +107,8 @@ export default function HomeScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
+            <GlobalBackground />
+
             {/* Header */}
             <View style={styles.header}>
                 <View>
@@ -230,11 +233,11 @@ function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors'])
         },
         // Herbarium Deck Card
         deckCard: {
-            backgroundColor: botanical.paper,
-            borderRadius: radii.xl,
+            backgroundColor: '#fcfaf2',
+            borderRadius: radii.sm, // PWA uses rounded-sm (very small)
             overflow: 'hidden',
             borderWidth: 1,
-            borderColor: botanical.tapePin + '60',
+            borderColor: '#d1c9b8',
             ...cardShadow,
             position: 'relative',
         },

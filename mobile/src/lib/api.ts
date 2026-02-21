@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 const TOKEN_KEY = 'riven_auth_token';
 
@@ -8,6 +9,9 @@ const API_BASE = __DEV__
     : 'https://riven-h7rw.onrender.com/api';
 
 async function getToken(): Promise<string | null> {
+    if (Platform.OS === 'web') {
+        return localStorage.getItem(TOKEN_KEY);
+    }
     return SecureStore.getItemAsync(TOKEN_KEY);
 }
 
@@ -116,6 +120,18 @@ export const api = {
         }),
     deleteUser: (userId: number) =>
         request<{ message: string }>(`/admin/users/${userId}`, { method: 'DELETE' }),
+    getAdminStats: () => request<AdminStats>('/admin/stats'),
+    getAdminMessages: () => request<AdminMessage[]>('/admin/messages'),
+    createAdminMessage: (title: string, content: string, type: string) =>
+        request<AdminMessage>('/admin/messages', {
+            method: 'POST', body: JSON.stringify({ title, content, type })
+        }),
+    updateAdminMessage: (id: number, data: Partial<AdminMessage>) =>
+        request<AdminMessage>(`/admin/messages/${id}`, {
+            method: 'PUT', body: JSON.stringify(data)
+        }),
+    deleteAdminMessage: (id: number) =>
+        request<{ message: string }>(`/admin/messages/${id}`, { method: 'DELETE' }),
 
     // Streak
     getStreak: () => request<Record<string, unknown>>('/auth/streak'),
@@ -232,6 +248,15 @@ export const api = {
     setActiveTheme: (id: number) =>
         request<ServerTheme>(`/themes/${id}/activate`, { method: 'PUT' }),
 
+    createTheme: (data: Partial<ServerTheme>) =>
+        request<ServerTheme>('/themes', { method: 'POST', body: JSON.stringify(data) }),
+
+    updateTheme: (id: number, data: Partial<ServerTheme>) =>
+        request<ServerTheme>(`/themes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    deleteTheme: (id: number) =>
+        request<{ message: string }>(`/themes/${id}`, { method: 'DELETE' }),
+
     // ============ SOCIAL ============
 
     searchUsers: (q: string) => request<UserSearchResult[]>(`/users/search?q=${encodeURIComponent(q)}`),
@@ -259,6 +284,10 @@ export const api = {
         request<Message>('/messages', {
             method: 'POST',
             body: JSON.stringify({ receiverId, content, messageType }),
+        }),
+    acceptSharedDeck: (messageId: number) =>
+        request<{ newDeck: Deck }>(`/messages/${messageId}/accept-deck`, {
+            method: 'POST',
         }),
     getUnreadCount: () => request<{ count: number }>('/messages/unread/count'),
 };
@@ -403,4 +432,23 @@ export interface AdminUser {
     createdAt: string;
     deckCount: number;
     cardCount: number;
+}
+
+export interface AdminStats {
+    users: number;
+    decks: number;
+    cards: number;
+    recentSignups: number;
+    recentSessions: number;
+    dailyActivity: { date: string; count: number }[];
+    topDecks: { title: string; creator: string; sessions: number }[];
+}
+
+export interface AdminMessage {
+    id: number;
+    title: string;
+    content: string;
+    type: string;
+    isActive: boolean;
+    createdAt: string;
 }

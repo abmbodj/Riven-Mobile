@@ -7,6 +7,7 @@
 
 export const fonts = {
     display: 'CormorantGaramond_400Regular', // headings
+    displayLight: 'CormorantGaramond_300Light', // explicit light weight
     displayItalic: 'CormorantGaramond_400Regular_Italic',
     displayBold: 'CormorantGaramond_700Bold',
     displayBoldItalic: 'CormorantGaramond_700Bold_Italic',

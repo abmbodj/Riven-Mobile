@@ -8,23 +8,25 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Sprout, TreeDeciduous, Flower2, Sun, Crown } from 'lucide-react-native';
+import { ArrowLeft, Sprout } from 'lucide-react-native';
 import { useThemeStore } from '../src/stores/themeStore';
 import { useAuthStore } from '../src/stores/authStore';
-import { spacing, radii, fontSize, cardShadow } from '../src/constants/tokens';
+import { spacing, radii, fontSize, cardShadow, fonts, botanical } from '../src/constants/tokens';
+import { default as GardenMasterpiece } from '../src/components/GardenMasterpiece';
+import GlobalBackground from '../src/components/GlobalBackground';
 
 const GARDEN_STAGES = [
-    { days: 0, name: 'Barren Plot', icon: '🏜️', description: 'Your garden awaits its first seeds...' },
-    { days: 1, name: 'Seeded Soil', icon: '🌱', description: 'The first seeds have been planted!' },
-    { days: 3, name: 'Tiny Sprout', icon: '🌿', description: 'A small sprout peeks through the soil.' },
-    { days: 7, name: 'Seedling', icon: '🪴', description: 'Your seedling is growing stronger.' },
-    { days: 14, name: 'Young Plant', icon: '🌳', description: 'A young plant reaches for the sun.' },
-    { days: 30, name: 'Budding Garden', icon: '🌸', description: 'Buds are forming on your plant!' },
-    { days: 60, name: 'Blooming Garden', icon: '🌺', description: 'Your garden is in full bloom!' },
-    { days: 100, name: 'Flourishing Oasis', icon: '🌴', description: 'An oasis of knowledge and growth.' },
-    { days: 200, name: 'Enchanted Grove', icon: '🍀', description: 'A magical grove of wisdom.' },
-    { days: 365, name: 'Ancient Forest', icon: '🌲', description: 'An ancient forest of learning.' },
-    { days: 1000, name: 'Celestial Eden', icon: '✨', description: 'You have achieved paradise!' },
+    { days: 0, name: 'Barren Plot', icon: '0', description: 'Your garden awaits its first seeds...' },
+    { days: 1, name: 'Seeded Soil', icon: '1', description: 'The first seeds have been planted!' },
+    { days: 3, name: 'Tiny Sprout', icon: '2', description: 'A small sprout peeks through the soil.' },
+    { days: 7, name: 'Seedling', icon: '3', description: 'Your seedling is growing stronger.' },
+    { days: 14, name: 'Young Plant', icon: '4', description: 'A young plant reaches for the sun.' },
+    { days: 30, name: 'Budding Garden', icon: '5', description: 'Buds are forming on your plant!' },
+    { days: 60, name: 'Blooming Garden', icon: '6', description: 'Your garden is in full bloom!' },
+    { days: 100, name: 'Flourishing Oasis', icon: '7', description: 'An oasis of knowledge and growth.' },
+    { days: 200, name: 'Enchanted Grove', icon: '8', description: 'A magical grove of wisdom.' },
+    { days: 365, name: 'Ancient Forest', icon: '9', description: 'An ancient forest of learning.' },
+    { days: 1000, name: 'Celestial Eden', icon: '10', description: 'You have achieved paradise!' },
 ];
 
 export default function GardenScreen() {
@@ -54,29 +56,30 @@ export default function GardenScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
+            <GlobalBackground />
             <View style={styles.header}>
-                <Pressable onPress={() => router.back()} hitSlop={12}>
-                    <ArrowLeft size={24} color={colors.text} />
+                <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backButton}>
+                    <ArrowLeft size={24} color={botanical.parchment} />
                 </Pressable>
-                <Text style={styles.title}>Garden</Text>
-                <View style={{ width: 24 }} />
+                <Text style={styles.title}>Your Garden</Text>
+                <View style={{ width: 40 }} />
             </View>
 
             <ScrollView contentContainerStyle={styles.scroll}>
                 {/* Garden Visualization */}
                 <View style={styles.gardenCard}>
-                    <Text style={styles.gardenEmoji}>{currentStage.icon}</Text>
+                    <GardenMasterpiece streak={streakDays} size="xl" style={{ marginVertical: spacing.lg }} />
                     <Text style={styles.stageName}>{currentStage.name}</Text>
                     <Text style={styles.stageDesc}>{currentStage.description}</Text>
 
                     <View style={styles.streakBadge}>
-                        <Sprout size={16} color={colors.accent} />
+                        <Sprout size={16} color={botanical.forest} />
                         <Text style={styles.streakText}>{streakDays} day streak</Text>
                     </View>
                 </View>
 
                 {/* Progress to Next Stage */}
-                {nextStage && (
+                {nextStage ? (
                     <View style={styles.progressCard}>
                         <View style={styles.progressHeader}>
                             <Text style={styles.progressLabel}>Progress to {nextStage.name}</Text>
@@ -89,10 +92,23 @@ export default function GardenScreen() {
                             {nextStage.days - streakDays} more days needed
                         </Text>
                     </View>
+                ) : (
+                    <View style={styles.progressCard}>
+                        <View style={styles.progressHeader}>
+                            <Text style={styles.progressLabel}>Maximum Stage Reached!</Text>
+                            <Text style={styles.progressPercent}>100%</Text>
+                        </View>
+                        <View style={styles.progressBar}>
+                            <View style={[styles.progressFill, { width: `100%` }]} />
+                        </View>
+                        <Text style={styles.progressDays}>
+                            You have achieved the highest form of enlightenment.
+                        </Text>
+                    </View>
                 )}
 
                 {/* All Stages */}
-                <Text style={styles.sectionTitle}>All Stages</Text>
+                <Text style={styles.sectionTitle}>Evolution Log</Text>
                 {GARDEN_STAGES.map((stage) => {
                     const isUnlocked = streakDays >= stage.days;
                     const isCurrent = stage.name === currentStage.name;
@@ -106,9 +122,11 @@ export default function GardenScreen() {
                                 !isUnlocked && styles.stageItemLocked,
                             ]}
                         >
-                            <Text style={styles.stageEmoji}>{isUnlocked ? stage.icon : '🔒'}</Text>
+                            <View style={styles.stageIconContainer}>
+                                <GardenMasterpiece streak={stage.days} size="sm" />
+                            </View>
                             <View style={styles.stageInfo}>
-                                <Text style={[styles.stageItemName, !isUnlocked && { color: colors.textSecondary }]}>
+                                <Text style={[styles.stageItemName, !isUnlocked && { color: 'rgba(244, 241, 232, 0.5)' }]}>
                                     {stage.name}
                                 </Text>
                                 <Text style={styles.stageDays}>{stage.days} days</Text>
@@ -128,55 +146,76 @@ export default function GardenScreen() {
 
 function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors']) {
     return StyleSheet.create({
-        container: { flex: 1, backgroundColor: colors.bg },
+        container: { flex: 1, backgroundColor: botanical.ink },
         header: {
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
             paddingHorizontal: spacing.md, paddingVertical: spacing.md,
         },
-        title: { fontSize: fontSize.xl, fontWeight: '700', color: colors.text },
-        scroll: { paddingHorizontal: spacing.md, paddingBottom: spacing['2xl'], gap: spacing.md },
+        backButton: {
+            width: 40,
+            height: 40,
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderRadius: radii.full,
+            backgroundColor: 'rgba(252, 250, 242, 0.05)',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.05)',
+        },
+        title: { fontFamily: fonts.displayBold, fontSize: fontSize['2xl'], color: botanical.parchment },
+        scroll: { paddingHorizontal: spacing.md, paddingBottom: spacing['2xl'] * 2, gap: spacing.md },
         gardenCard: {
-            backgroundColor: colors.surface, borderRadius: radii.xl, padding: spacing.xl,
-            alignItems: 'center', borderWidth: 1, borderColor: colors.border, ...cardShadow,
+            backgroundColor: 'rgba(252, 250, 242, 0.03)',
+            borderRadius: radii['2xl'],
+            padding: spacing.xl,
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.05)',
+            ...cardShadow,
         },
-        gardenEmoji: { fontSize: 80 },
-        stageName: { fontSize: fontSize['2xl'], fontWeight: '700', color: colors.text, marginTop: spacing.md },
-        stageDesc: { fontSize: fontSize.md, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xs },
+        stageName: { fontFamily: fonts.displayBold, fontSize: fontSize['3xl'], color: botanical.parchment, marginTop: spacing.md },
+        stageDesc: { fontFamily: fonts.display, fontSize: fontSize.md, color: botanical.sepia, textAlign: 'center', marginTop: spacing.xs, fontStyle: 'italic' },
         streakBadge: {
-            flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
-            backgroundColor: colors.accent + '20', paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
-            borderRadius: radii.full, marginTop: spacing.md,
+            flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+            backgroundColor: 'rgba(122,158,114,0.15)',
+            paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
+            borderRadius: radii.full, marginTop: spacing.xl,
+            borderWidth: 1, borderColor: 'rgba(122,158,114,0.25)',
         },
-        streakText: { fontSize: fontSize.sm, fontWeight: '600', color: colors.accent },
+        streakText: { fontFamily: fonts.mono, fontSize: fontSize.sm, color: botanical.forest, textTransform: 'uppercase', letterSpacing: 1 },
         progressCard: {
-            backgroundColor: colors.surface, borderRadius: radii.lg, padding: spacing.md,
-            borderWidth: 1, borderColor: colors.border, gap: spacing.sm,
+            backgroundColor: 'rgba(252, 250, 242, 0.03)',
+            borderRadius: radii.xl, padding: spacing.lg,
+            borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', gap: spacing.md,
         },
         progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-        progressLabel: { fontSize: fontSize.sm, color: colors.textSecondary },
-        progressPercent: { fontSize: fontSize.sm, fontWeight: '600', color: colors.accent },
-        progressBar: { height: 8, backgroundColor: colors.border, borderRadius: 4, overflow: 'hidden' },
-        progressFill: { height: '100%', backgroundColor: colors.accent, borderRadius: 4 },
-        progressDays: { fontSize: fontSize.xs, color: colors.textSecondary },
+        progressLabel: { fontFamily: fonts.mono, fontSize: fontSize.xs, color: botanical.sepia, textTransform: 'uppercase', letterSpacing: 1 },
+        progressPercent: { fontFamily: fonts.displayBold, fontSize: fontSize.lg, color: botanical.forest },
+        progressBar: { height: 6, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: radii.full, overflow: 'hidden' },
+        progressFill: { height: '100%', backgroundColor: botanical.forest, borderRadius: radii.full },
+        progressDays: { fontFamily: fonts.display, fontSize: fontSize.sm, color: botanical.sepia, fontStyle: 'italic' },
         sectionTitle: {
-            fontSize: fontSize.sm, fontWeight: '600', color: colors.textSecondary,
-            textTransform: 'uppercase', letterSpacing: 1, marginTop: spacing.md,
+            fontFamily: fonts.mono, fontSize: fontSize.sm, color: botanical.sepia,
+            textTransform: 'uppercase', letterSpacing: 2, marginTop: spacing.xl, marginBottom: spacing.xs,
+            paddingHorizontal: spacing.xs,
         },
         stageItem: {
             flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-            backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.md,
-            borderWidth: 1, borderColor: colors.border,
+            backgroundColor: 'rgba(252, 250, 242, 0.03)', borderRadius: radii.xl, padding: spacing.md,
+            borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
         },
-        stageItemCurrent: { borderColor: colors.accent, borderWidth: 2 },
+        stageItemCurrent: { borderColor: botanical.forest, backgroundColor: 'rgba(122,158,114,0.05)' },
         stageItemLocked: { opacity: 0.5 },
-        stageEmoji: { fontSize: 28 },
-        stageInfo: { flex: 1 },
-        stageItemName: { fontSize: fontSize.md, fontWeight: '600', color: colors.text },
-        stageDays: { fontSize: fontSize.xs, color: colors.textSecondary },
-        currentBadge: {
-            backgroundColor: colors.accent + '20', paddingHorizontal: spacing.sm, paddingVertical: 2,
-            borderRadius: radii.full,
+        stageIconContainer: {
+            width: 50, height: 50, borderRadius: radii.lg, overflow: 'hidden',
+            justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)',
         },
-        currentBadgeText: { fontSize: fontSize.xs, fontWeight: '600', color: colors.accent },
+        stageInfo: { flex: 1 },
+        stageItemName: { fontFamily: fonts.displayBold, fontSize: fontSize.lg, color: botanical.parchment },
+        stageDays: { fontFamily: fonts.mono, fontSize: fontSize.xs, color: botanical.sepia, marginTop: 4 },
+        currentBadge: {
+            backgroundColor: 'rgba(122,158,114,0.15)', paddingHorizontal: spacing.md, paddingVertical: 4,
+            borderRadius: radii.full, borderWidth: 1, borderColor: 'rgba(122,158,114,0.3)',
+        },
+        currentBadgeText: { fontFamily: fonts.mono, fontSize: 10, color: botanical.forest, textTransform: 'uppercase', letterSpacing: 1 },
     });
 }

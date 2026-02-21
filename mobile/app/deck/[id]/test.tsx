@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -7,16 +7,30 @@ import {
     TextInput,
     Dimensions,
     ScrollView,
+    KeyboardAvoidingView,
+    Platform,
+    Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, CheckCircle, XCircle, RotateCcw } from 'lucide-react-native';
+import {
+    X,
+    Trophy,
+    Target,
+    CheckCircle2,
+    XCircle,
+    List,
+    Keyboard,
+    Send,
+    RefreshCw
+} from 'lucide-react-native';
 import { useThemeStore } from '../../../src/stores/themeStore';
 import { api, Card } from '../../../src/lib/api';
-import { spacing, radii, fontSize, cardShadow } from '../../../src/constants/tokens';
+import { spacing, radii, fontSize, cardShadow, fonts, botanical } from '../../../src/constants/tokens';
+import GlobalBackground from '../../../src/components/GlobalBackground';
+import * as Haptics from 'expo-haptics';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function TestModeScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -24,265 +38,543 @@ export default function TestModeScreen() {
     const router = useRouter();
     const deckId = parseInt(id);
 
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [userAnswer, setUserAnswer] = useState('');
+    const [testMode, setTestMode] = useState<'multiple' | 'typed' | null>(null);
+    const [questions, setQuestions] = useState<{ card: Card; options?: string[]; correctAnswer: string }[]>([]);
+    const [currentQIndex, setCurrentQIndex] = useState(0);
+    const [score, setScore] = useState(0);
     const [showResult, setShowResult] = useState(false);
-    const [results, setResults] = useState<{ card: Card; userAnswer: string; correct: boolean }[]>([]);
-    const [testComplete, setTestComplete] = useState(false);
+    const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+    const [showFeedback, setShowFeedback] = useState(false);
+    const [typedAnswer, setTypedAnswer] = useState('');
+    const inputRef = useRef<TextInput>(null);
 
-    const { data: deck } = useQuery({
+    const { data: deck, isLoading } = useQuery({
         queryKey: ['deck', deckId],
         queryFn: () => api.getDeck(deckId),
         enabled: !!deckId,
     });
 
-    const cards = useMemo(() => {
-        if (!deck?.cards) return [];
-        // Shuffle cards for test mode
-        return [...deck.cards].sort(() => Math.random() - 0.5);
-    }, [deck?.cards]);
+    const cards = useMemo(() => deck?.cards || [], [deck?.cards]);
 
-    const currentCard = cards[currentIndex];
-
-    const checkAnswer = useCallback(() => {
-        if (!currentCard || !userAnswer.trim()) return;
-
-        const isCorrect = userAnswer.trim().toLowerCase() === currentCard.back.trim().toLowerCase();
-        setResults((prev) => [...prev, { card: currentCard, userAnswer: userAnswer.trim(), correct: isCorrect }]);
-        setShowResult(true);
-    }, [currentCard, userAnswer]);
-
-    const nextCard = useCallback(() => {
-        if (currentIndex < cards.length - 1) {
-            setCurrentIndex((i) => i + 1);
-            setUserAnswer('');
-            setShowResult(false);
-        } else {
-            setTestComplete(true);
+    const generateTest = useCallback((deckCards: Card[], mode: 'multiple' | 'typed') => {
+        const minCards = mode === 'multiple' ? 4 : 1;
+        if (deckCards.length < minCards) {
+            setQuestions([]);
+            return;
         }
-    }, [currentIndex, cards.length]);
 
-    const resetTest = useCallback(() => {
-        setCurrentIndex(0);
-        setUserAnswer('');
+        const shuffled = [...deckCards].sort(() => 0.5 - Math.random());
+        const newQuestions = shuffled.map(card => {
+            if (mode === 'multiple') {
+                const distractors = deckCards
+                    .filter(c => c.id !== card.id)
+                    .sort(() => 0.5 - Math.random())
+                    .slice(0, 3)
+                    .map(c => c.back);
+
+                const options = [...distractors, card.back].sort(() => 0.5 - Math.random());
+
+                return {
+                    card,
+                    options,
+                    correctAnswer: card.back
+                };
+            } else {
+                return {
+                    card,
+                    correctAnswer: card.back
+                };
+            }
+        });
+
+        setQuestions(newQuestions);
+        setCurrentQIndex(0);
+        setScore(0);
         setShowResult(false);
-        setResults([]);
-        setTestComplete(false);
+        setTypedAnswer('');
     }, []);
 
-    const styles = makeStyles(colors);
-    const correctCount = results.filter((r) => r.correct).length;
-    const percentage = results.length > 0 ? Math.round((correctCount / results.length) * 100) : 0;
+    const startTest = (mode: 'multiple' | 'typed') => {
+        setTestMode(mode);
+        generateTest(cards, mode);
+    };
 
-    // Test complete
-    if (testComplete) {
+    useEffect(() => {
+        if (testMode === 'typed' && inputRef.current && !showFeedback) {
+            // Slight delay needed in RN to ensure layout is complete before focusing
+            setTimeout(() => {
+                inputRef.current?.focus();
+            }, 100);
+        }
+    }, [currentQIndex, testMode, showFeedback]);
+
+    const handleMultipleAnswer = (selectedOption: string) => {
+        if (showFeedback) return;
+
+        setSelectedAnswer(selectedOption);
+        setShowFeedback(true);
+
+        const isCorrect = selectedOption === questions[currentQIndex].correctAnswer;
+        if (isCorrect) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            setScore(s => s + 1);
+        } else {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
+
+        setTimeout(() => {
+            setSelectedAnswer(null);
+            setShowFeedback(false);
+
+            if (currentQIndex < questions.length - 1) {
+                setCurrentQIndex(i => i + 1);
+            } else {
+                setShowResult(true);
+            }
+        }, 1200);
+    };
+
+    const normalizeAnswer = (answer: string) => {
+        return answer
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, ' ')  // normalize whitespace
+            .replace(/[.,!?;:'"]/g, ''); // remove punctuation
+    };
+
+    const handleTypedSubmit = () => {
+        if (showFeedback || !typedAnswer.trim()) return;
+
+        setShowFeedback(true);
+
+        const correctAnswer = questions[currentQIndex].correctAnswer;
+        const isCorrect = normalizeAnswer(typedAnswer) === normalizeAnswer(correctAnswer);
+
+        if (isCorrect) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            setScore(s => s + 1);
+        } else {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
+
+        setTimeout(() => {
+            setShowFeedback(false);
+            setTypedAnswer('');
+
+            if (currentQIndex < questions.length - 1) {
+                setCurrentQIndex(i => i + 1);
+            } else {
+                setShowResult(true);
+            }
+        }, 2000);
+    };
+
+    const styles = makeStyles(colors);
+
+    if (isLoading) {
         return (
             <SafeAreaView style={styles.container}>
-                <ScrollView contentContainerStyle={styles.completeScroll}>
-                    <CheckCircle size={64} color={colors.accent} />
-                    <Text style={styles.completeTitle}>Test Complete!</Text>
-                    <Text style={styles.completeSubtitle}>{deck?.title}</Text>
-
-                    <View style={styles.statsRow}>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statNumber}>{correctCount}</Text>
-                            <Text style={styles.statLabel}>Correct</Text>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Text style={[styles.statNumber, { color: '#ef4444' }]}>{results.length - correctCount}</Text>
-                            <Text style={styles.statLabel}>Wrong</Text>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Text style={[styles.statNumber, { color: colors.accent }]}>{percentage}%</Text>
-                            <Text style={styles.statLabel}>Score</Text>
-                        </View>
-                    </View>
-
-                    {/* Review wrong answers */}
-                    {results.filter((r) => !r.correct).length > 0 && (
-                        <View style={styles.reviewSection}>
-                            <Text style={styles.reviewTitle}>Review Incorrect Answers</Text>
-                            {results.filter((r) => !r.correct).map((r, i) => (
-                                <View key={i} style={styles.reviewCard}>
-                                    <Text style={styles.reviewQuestion}>{r.card.front}</Text>
-                                    <Text style={styles.reviewYours}>Your answer: {r.userAnswer}</Text>
-                                    <Text style={styles.reviewCorrect}>Correct: {r.card.back}</Text>
-                                </View>
-                            ))}
-                        </View>
-                    )}
-
-                    <View style={styles.completeActions}>
-                        <Pressable style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.85 }]} onPress={resetTest}>
-                            <RotateCcw size={18} color="#1a1a18" />
-                            <Text style={styles.actionBtnText}>Retake Test</Text>
-                        </Pressable>
-                        <Pressable
-                            style={({ pressed }) => [styles.actionBtnOutline, pressed && { opacity: 0.85 }]}
-                            onPress={() => router.back()}
-                        >
-                            <Text style={[styles.actionBtnText, { color: colors.accent }]}>Done</Text>
-                        </Pressable>
-                    </View>
-                </ScrollView>
+                <GlobalBackground />
+                <View style={styles.centerContainer}>
+                    <Text style={styles.loadingText}>Loading...</Text>
+                </View>
             </SafeAreaView>
         );
     }
 
-    return (
-        <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Pressable onPress={() => router.back()} hitSlop={12}>
-                    <ArrowLeft size={24} color={colors.text} />
-                </Pressable>
-                <Text style={styles.progress}>{currentIndex + 1} / {cards.length}</Text>
-                <View style={{ width: 24 }} />
-            </View>
+    if (cards.length === 0) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <GlobalBackground />
+                <View style={styles.centerContainer}>
+                    <Text style={{ fontSize: 48, marginBottom: spacing.md }}>🎯</Text>
+                    <Text style={styles.emptyTitle}>No Cards Yet</Text>
+                    <Text style={styles.emptySubtitle}>Add some cards to take a quiz</Text>
+                    <Pressable style={styles.primaryButton} onPress={() => router.back()}>
+                        <Text style={styles.primaryButtonText}>Back to Deck</Text>
+                    </Pressable>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
-            {/* Progress Bar */}
-            <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${((currentIndex + 1) / cards.length) * 100}%` }]} />
-            </View>
+    // Mode selection screen
+    if (!testMode) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <GlobalBackground />
+                <View style={styles.header}>
+                    <Pressable onPress={() => router.back()} hitSlop={12} style={styles.headerButton}>
+                        <X size={24} color={colors.textSecondary} />
+                    </Pressable>
+                    <Text style={styles.headerTitle}>Choose Quiz Mode</Text>
+                    <View style={{ width: 24 }} />
+                </View>
 
-            <View style={styles.content}>
-                {/* Question Card */}
-                {currentCard && (
-                    <View style={styles.questionCard}>
-                        <Text style={styles.questionLabel}>Question</Text>
-                        <Text style={styles.questionText}>{currentCard.front}</Text>
-                    </View>
-                )}
-
-                {/* Answer Input */}
-                {!showResult ? (
-                    <View style={styles.answerSection}>
-                        <TextInput
-                            style={styles.answerInput}
-                            placeholder="Type your answer..."
-                            placeholderTextColor={colors.textSecondary}
-                            value={userAnswer}
-                            onChangeText={setUserAnswer}
-                            autoCapitalize="none"
-                            returnKeyType="done"
-                            onSubmitEditing={checkAnswer}
-                        />
+                <View style={styles.modeContainer}>
+                    <View style={styles.modeCards}>
                         <Pressable
                             style={({ pressed }) => [
-                                styles.submitBtn,
-                                !userAnswer.trim() && { opacity: 0.5 },
-                                pressed && { opacity: 0.85 },
+                                styles.modeCard,
+                                cards.length < 4 && styles.modeCardDisabled,
+                                pressed && cards.length >= 4 && { transform: [{ scale: 0.98 }] }
                             ]}
-                            onPress={checkAnswer}
-                            disabled={!userAnswer.trim()}
+                            disabled={cards.length < 4}
+                            onPress={() => startTest('multiple')}
                         >
-                            <Text style={styles.submitBtnText}>Check Answer</Text>
+                            <View style={[styles.modeIconBox, { backgroundColor: 'rgba(59, 130, 246, 0.2)' }]}>
+                                <List size={24} color="#3b82f6" />
+                            </View>
+                            <View style={styles.modeInfo}>
+                                <Text style={styles.modeTitle}>Multiple Choice</Text>
+                                <Text style={styles.modeSubtitle}>Choose the correct answer from 4 options</Text>
+                                {cards.length < 4 && (
+                                    <Text style={styles.modeErrorText}>Requires at least 4 cards</Text>
+                                )}
+                            </View>
+                        </Pressable>
+
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.modeCard,
+                                pressed && { transform: [{ scale: 0.98 }] }
+                            ]}
+                            onPress={() => startTest('typed')}
+                        >
+                            <View style={[styles.modeIconBox, { backgroundColor: 'rgba(34, 197, 94, 0.2)' }]}>
+                                <Keyboard size={24} color="#22c55e" />
+                            </View>
+                            <View style={styles.modeInfo}>
+                                <Text style={styles.modeTitle}>Type Answer</Text>
+                                <Text style={styles.modeSubtitle}>Type the exact answer to test your recall</Text>
+                            </View>
                         </Pressable>
                     </View>
-                ) : (
-                    <View style={styles.resultSection}>
-                        {results[results.length - 1]?.correct ? (
-                            <View style={styles.resultCorrect}>
-                                <CheckCircle size={28} color="#22c55e" />
-                                <Text style={styles.resultCorrectText}>Correct!</Text>
-                            </View>
+
+                    <Text style={styles.deckCountText}>{cards.length} cards in this deck</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (showResult) {
+        const percentage = Math.round((score / questions.length) * 100);
+        const isSuccess = percentage >= 70;
+
+        return (
+            <SafeAreaView style={styles.container}>
+                <GlobalBackground />
+                <View style={styles.resultContainer}>
+                    <View style={[styles.resultIconBox, isSuccess ? { backgroundColor: 'rgba(34, 197, 94, 0.2)' } : { backgroundColor: 'rgba(249, 115, 22, 0.2)' }]}>
+                        {isSuccess ? (
+                            <Trophy size={40} color="#22c55e" />
                         ) : (
-                            <View style={styles.resultWrong}>
-                                <XCircle size={28} color="#ef4444" />
-                                <Text style={styles.resultWrongText}>Incorrect</Text>
-                                <Text style={styles.resultAnswer}>Correct answer: {currentCard?.back}</Text>
+                            <Target size={40} color="#f97316" />
+                        )}
+                    </View>
+
+                    <Text style={styles.resultTitle}>Complete!</Text>
+                    <Text style={styles.resultPercentage}>{percentage}% correct</Text>
+
+                    <View style={styles.statsRow}>
+                        <View style={styles.statCard}>
+                            <Text style={[styles.statNumber, { color: '#22c55e' }]}>{score}</Text>
+                            <Text style={styles.statLabel}>Correct</Text>
+                        </View>
+                        <View style={styles.statCard}>
+                            <Text style={[styles.statNumber, { color: '#ef4444' }]}>{questions.length - score}</Text>
+                            <Text style={styles.statLabel}>Wrong</Text>
+                        </View>
+                    </View>
+
+                    <View style={styles.resultActions}>
+                        <Pressable
+                            style={styles.primaryButton}
+                            onPress={() => generateTest(cards, testMode)}
+                        >
+                            <RefreshCw size={20} color="#1a1a18" style={{ marginRight: 8 }} />
+                            <Text style={styles.primaryButtonText}>Try Again</Text>
+                        </Pressable>
+                        <Pressable
+                            style={styles.secondaryButton}
+                            onPress={() => setTestMode(null)}
+                        >
+                            <Text style={styles.secondaryButtonText}>Change Mode</Text>
+                        </Pressable>
+                        <Pressable
+                            style={styles.textLink}
+                            onPress={() => router.back()}
+                        >
+                            <Text style={styles.textLinkText}>Back to Deck</Text>
+                        </Pressable>
+                    </View>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    const currentQ = questions[currentQIndex];
+    const progress = ((currentQIndex) / questions.length) * 100;
+
+    return (
+        <SafeAreaView style={styles.container}>
+            <GlobalBackground />
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+                {/* Header Sequence */}
+                <View style={styles.testHeader}>
+                    <Pressable onPress={() => router.back()} hitSlop={12} style={styles.headerButton}>
+                        <X size={24} color={colors.textSecondary} />
+                    </Pressable>
+                    <View style={styles.progressContainer}>
+                        <View style={styles.progressBar}>
+                            <View
+                                style={[
+                                    styles.progressFill,
+                                    { width: `${progress}%` },
+                                ]}
+                            />
+                        </View>
+                        <Text style={styles.progressText}>Question {currentQIndex + 1} of {questions.length}</Text>
+                    </View>
+                    <View style={{ width: 24 }} />
+                </View>
+
+                {/* Common Question Card */}
+                <View style={styles.questionSection}>
+                    <View style={styles.questionCard}>
+                        <Text style={styles.questionLabel}>What is:</Text>
+                        {/* If front_image exists, render it. Note: RN requires uri formatting */}
+                        {false /* Replace with currentQ.card.front_image check if images are added to schema */}
+                        <Text style={styles.questionText} adjustsFontSizeToFit minimumFontScale={0.5} numberOfLines={4}>
+                            {currentQ.card.front}
+                        </Text>
+                    </View>
+                </View>
+
+                {/* Specific Mode Inputs */}
+                {testMode === 'typed' ? (
+                    <View style={styles.typedInputContainer}>
+                        <View style={[
+                            styles.typedInputWrapper,
+                            showFeedback && normalizeAnswer(typedAnswer) === normalizeAnswer(currentQ.correctAnswer) ? styles.inputCorrect :
+                                showFeedback ? styles.inputWrong : null
+                        ]}>
+                            <TextInput
+                                ref={inputRef}
+                                style={[
+                                    styles.typedInput,
+                                    showFeedback && normalizeAnswer(typedAnswer) === normalizeAnswer(currentQ.correctAnswer) ? { color: '#22c55e' } :
+                                        showFeedback ? { color: '#ef4444' } : null
+                                ]}
+                                value={typedAnswer}
+                                onChangeText={setTypedAnswer}
+                                placeholder="Type your answer..."
+                                placeholderTextColor={colors.textSecondary}
+                                editable={!showFeedback}
+                                autoCapitalize="none"
+                                returnKeyType="send"
+                                onSubmitEditing={handleTypedSubmit}
+                            />
+                            <Pressable
+                                style={[
+                                    styles.typedSubmitBtn,
+                                    typedAnswer.trim() && !showFeedback ? styles.typedSubmitBtnActive : null
+                                ]}
+                                onPress={handleTypedSubmit}
+                                disabled={showFeedback || !typedAnswer.trim()}
+                            >
+                                <Send size={20} color={typedAnswer.trim() && !showFeedback ? '#ffffff' : colors.textSecondary} />
+                            </Pressable>
+                        </View>
+
+                        {showFeedback && (
+                            <View style={[
+                                styles.feedbackBox,
+                                normalizeAnswer(typedAnswer) === normalizeAnswer(currentQ.correctAnswer) ? styles.feedbackBoxCorrect : styles.feedbackBoxWrong
+                            ]}>
+                                <View style={styles.feedbackHeader}>
+                                    {normalizeAnswer(typedAnswer) === normalizeAnswer(currentQ.correctAnswer) ? (
+                                        <>
+                                            <CheckCircle2 size={24} color="#22c55e" />
+                                            <Text style={styles.feedbackTitleCorrect}>Correct!</Text>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <XCircle size={24} color="#ef4444" />
+                                            <Text style={styles.feedbackTitleWrong}>Incorrect</Text>
+                                        </>
+                                    )}
+                                </View>
+                                {normalizeAnswer(typedAnswer) !== normalizeAnswer(currentQ.correctAnswer) && (
+                                    <Text style={styles.feedbackText}>
+                                        <Text style={{ color: colors.textSecondary }}>Correct answer: </Text>
+                                        <Text style={{ color: '#22c55e', fontWeight: '500' }}>{currentQ.correctAnswer}</Text>
+                                    </Text>
+                                )}
                             </View>
                         )}
-                        <Pressable style={({ pressed }) => [styles.nextBtn, pressed && { opacity: 0.85 }]} onPress={nextCard}>
-                            <Text style={styles.nextBtnText}>
-                                {currentIndex < cards.length - 1 ? 'Next Question' : 'See Results'}
-                            </Text>
-                        </Pressable>
+                        <Text style={styles.hintText}>Press return or tap send to submit</Text>
                     </View>
+                ) : (
+                    <ScrollView style={styles.optionsScroll} contentContainerStyle={styles.optionsContainer}>
+                        {currentQ.options?.map((option, idx) => {
+                            const isSelected = selectedAnswer === option;
+                            const isCorrect = option === currentQ.correctAnswer;
+                            const showCorrect = showFeedback && isCorrect;
+                            const showWrong = showFeedback && isSelected && !isCorrect;
+
+                            return (
+                                <Pressable
+                                    key={idx}
+                                    style={[
+                                        styles.optionBtn,
+                                        showCorrect ? styles.optionCorrect :
+                                            showWrong ? styles.optionWrong : null,
+                                        showFeedback && !isSelected && !isCorrect ? { opacity: 0.5 } : null
+                                    ]}
+                                    disabled={showFeedback}
+                                    onPress={() => handleMultipleAnswer(option)}
+                                >
+                                    <View style={[
+                                        styles.optionLetterBox,
+                                        showCorrect ? styles.optionLetterBoxCorrect :
+                                            showWrong ? styles.optionLetterBoxWrong : null
+                                    ]}>
+                                        {showCorrect ? (
+                                            <CheckCircle2 size={20} color="#ffffff" />
+                                        ) : showWrong ? (
+                                            <XCircle size={20} color="#ffffff" />
+                                        ) : (
+                                            <Text style={styles.optionLetterText}>
+                                                {String.fromCharCode(65 + idx)}
+                                            </Text>
+                                        )}
+                                    </View>
+                                    <Text style={[
+                                        styles.optionText,
+                                        showCorrect ? { color: '#22c55e' } :
+                                            showWrong ? { color: '#ef4444' } : null
+                                    ]}>
+                                        {option}
+                                    </Text>
+                                    {showCorrect && <Text style={styles.optionLabelCorrect}>Correct!</Text>}
+                                    {showWrong && <Text style={styles.optionLabelWrong}>Wrong</Text>}
+                                </Pressable>
+                            );
+                        })}
+                    </ScrollView>
                 )}
-            </View>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
 
 function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors']) {
     return StyleSheet.create({
-        container: { flex: 1, backgroundColor: 'transparent' },
-        header: {
-            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-            paddingHorizontal: spacing.md, paddingVertical: spacing.md,
+        container: { flex: 1, backgroundColor: botanical.ink },
+        centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
+        loadingText: { fontFamily: fonts.body, fontSize: fontSize.lg, color: colors.textSecondary },
+
+        emptyTitle: { fontFamily: fonts.displayBold, fontSize: fontSize.xl, color: botanical.parchment, marginBottom: spacing.sm, textAlign: 'center' },
+        emptySubtitle: { fontFamily: fonts.body, fontSize: fontSize.md, color: colors.textSecondary, marginBottom: spacing.xl, textAlign: 'center' },
+
+        header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, height: 56, flexShrink: 0 },
+        headerButton: { padding: spacing.sm, marginLeft: -spacing.sm },
+        headerTitle: { flex: 1, textAlign: 'center', fontFamily: fonts.displayBold, fontSize: fontSize.lg, color: botanical.parchment },
+
+        testHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, height: 56, flexShrink: 0 },
+        progressContainer: { flex: 1, marginHorizontal: spacing.md },
+        progressBar: { height: 6, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' },
+        progressFill: { height: '100%', backgroundColor: botanical.forest },
+        progressText: { fontFamily: fonts.body, fontSize: fontSize.xs, color: colors.textSecondary, textAlign: 'center', marginTop: 4 },
+
+        modeContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+        modeCards: { width: '100%', maxWidth: 360, gap: spacing.md },
+        modeCard: {
+            flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md,
+            padding: spacing.xl, borderRadius: radii['2xl'],
+            backgroundColor: 'rgba(252, 250, 242, 0.05)',
+            borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
         },
-        progress: { fontSize: fontSize.md, fontWeight: '600', color: colors.textSecondary },
-        progressBar: { height: 4, backgroundColor: colors.border, marginHorizontal: spacing.md, borderRadius: 2, overflow: 'hidden' },
-        progressFill: { height: '100%', backgroundColor: colors.accent, borderRadius: 2 },
-        content: { flex: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, gap: spacing.lg },
+        modeCardDisabled: { borderColor: 'rgba(255,255,255,0.02)', opacity: 0.5 },
+        modeIconBox: { width: 48, height: 48, borderRadius: radii.xl, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+        modeInfo: { flex: 1 },
+        modeTitle: { fontFamily: fonts.displayBold, fontSize: fontSize.lg, color: botanical.parchment, marginBottom: 4 },
+        modeSubtitle: { fontFamily: fonts.body, fontSize: fontSize.sm, color: colors.textSecondary },
+        modeErrorText: { fontFamily: fonts.body, fontSize: fontSize.xs, color: '#f97316', marginTop: spacing.sm },
+        deckCountText: { fontFamily: fonts.body, fontSize: fontSize.xs, color: colors.textSecondary, marginTop: spacing['2xl'], textAlign: 'center' },
+
+        questionSection: { paddingHorizontal: spacing.md, paddingVertical: spacing.lg },
         questionCard: {
-            backgroundColor: colors.surface, borderRadius: radii.xl, padding: spacing.xl,
-            minHeight: 180, justifyContent: 'center', alignItems: 'center',
-            borderWidth: 1, borderColor: colors.border, ...cardShadow,
+            backgroundColor: 'rgba(252, 250, 242, 0.05)', borderRadius: radii.xl, padding: spacing.xl,
+            borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
         },
-        questionLabel: {
-            position: 'absolute', top: spacing.md, left: spacing.md,
-            fontSize: fontSize.xs, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1,
+        questionLabel: { fontFamily: fonts.mono, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2, color: colors.textSecondary, marginBottom: spacing.md },
+        questionText: { fontFamily: fonts.displayBold, fontSize: fontSize['2xl'], color: botanical.parchment },
+
+        typedInputContainer: { flex: 1, paddingHorizontal: spacing.md, paddingBottom: spacing['2xl'] },
+        typedInputWrapper: {
+            flexDirection: 'row', position: 'relative',
+            backgroundColor: 'rgba(252, 250, 242, 0.05)', borderRadius: radii.xl,
+            borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
         },
-        questionText: { fontSize: fontSize['2xl'], fontWeight: '600', color: colors.text, textAlign: 'center' },
-        answerSection: { gap: spacing.md },
-        answerInput: {
-            backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
-            borderRadius: radii.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md,
-            fontSize: fontSize.md, color: colors.text,
+        inputCorrect: { borderColor: '#22c55e', backgroundColor: 'rgba(34, 197, 94, 0.1)' },
+        inputWrong: { borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' },
+        typedInput: { flex: 1, paddingHorizontal: spacing.lg, paddingVertical: spacing.lg, paddingRight: 56, fontFamily: fonts.body, fontSize: fontSize.lg, color: botanical.parchment },
+        typedSubmitBtn: { position: 'absolute', right: 8, top: '50%', marginTop: -20, width: 40, height: 40, borderRadius: radii.lg, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
+        typedSubmitBtnActive: { backgroundColor: botanical.forest },
+
+        feedbackBox: { marginTop: spacing.md, padding: spacing.md, borderRadius: radii.xl },
+        feedbackBoxCorrect: { backgroundColor: 'rgba(34, 197, 94, 0.1)' },
+        feedbackBoxWrong: { backgroundColor: 'rgba(239, 68, 68, 0.1)' },
+        feedbackHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
+        feedbackTitleCorrect: { fontFamily: fonts.displayBold, fontSize: fontSize.md, color: '#22c55e' },
+        feedbackTitleWrong: { fontFamily: fonts.displayBold, fontSize: fontSize.md, color: '#ef4444' },
+        feedbackText: { fontFamily: fonts.body, fontSize: fontSize.sm },
+        hintText: { fontFamily: fonts.body, fontSize: fontSize.xs, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xl },
+
+        optionsScroll: { flex: 1 },
+        optionsContainer: { paddingHorizontal: spacing.md, paddingBottom: spacing['2xl'], gap: spacing.md },
+        optionBtn: {
+            flexDirection: 'row', alignItems: 'center', padding: spacing.lg, borderRadius: radii.xl, gap: spacing.md,
+            backgroundColor: 'rgba(252, 250, 242, 0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
         },
-        submitBtn: {
-            backgroundColor: colors.accent, borderRadius: radii.md, paddingVertical: spacing.md, alignItems: 'center',
+        optionCorrect: { borderColor: '#22c55e', backgroundColor: 'rgba(34, 197, 94, 0.1)' },
+        optionWrong: { borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' },
+        optionLetterBox: { width: 32, height: 32, borderRadius: radii.full, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+        optionLetterBoxCorrect: { borderColor: '#22c55e', backgroundColor: '#22c55e' },
+        optionLetterBoxWrong: { borderColor: '#ef4444', backgroundColor: '#ef4444' },
+        optionLetterText: { fontFamily: fonts.displayBold, fontSize: fontSize.sm, color: botanical.parchment },
+        optionText: { flex: 1, fontFamily: fonts.body, fontSize: fontSize.md, color: botanical.parchment },
+        optionLabelCorrect: { fontFamily: fonts.displayBold, fontSize: fontSize.xs, color: '#22c55e' },
+        optionLabelWrong: { fontFamily: fonts.displayBold, fontSize: fontSize.xs, color: '#ef4444' },
+
+        resultContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.md },
+        resultIconBox: { width: 80, height: 80, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xl },
+        resultTitle: { fontFamily: fonts.displayBold, fontSize: fontSize['3xl'], color: botanical.parchment, marginBottom: spacing.xs },
+        resultPercentage: { fontFamily: fonts.body, fontSize: fontSize.lg, color: colors.textSecondary, marginBottom: spacing.xl },
+
+        statsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing['2xl'], width: '100%', maxWidth: 320 },
+        statCard: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.lg, backgroundColor: 'rgba(252, 250, 242, 0.05)', borderRadius: radii.xl, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+        statNumber: { fontFamily: fonts.displayBold, fontSize: fontSize['2xl'], marginBottom: 4 },
+        statLabel: { fontFamily: fonts.mono, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, color: colors.textSecondary },
+
+        resultActions: { width: '100%', maxWidth: 320, gap: spacing.md },
+        primaryButton: {
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+            backgroundColor: colors.accent, paddingVertical: spacing.lg, borderRadius: radii.lg, height: 56
         },
-        submitBtnText: { fontSize: fontSize.md, fontWeight: '700', color: '#1a1a18' },
-        resultSection: { gap: spacing.md },
-        resultCorrect: {
-            flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-            backgroundColor: '#22c55e15', borderRadius: radii.md, padding: spacing.md,
-            borderWidth: 1, borderColor: '#22c55e40',
+        primaryButtonText: { fontFamily: fonts.displayBold, fontSize: fontSize.md, color: botanical.ink },
+        secondaryButton: {
+            alignItems: 'center', justifyContent: 'center',
+            backgroundColor: 'transparent', paddingVertical: spacing.lg, borderRadius: radii.lg, height: 56,
+            borderWidth: 1, borderColor: 'rgba(209, 201, 184, 0.3)'
         },
-        resultCorrectText: { fontSize: fontSize.lg, fontWeight: '600', color: '#22c55e' },
-        resultWrong: {
-            backgroundColor: '#ef444415', borderRadius: radii.md, padding: spacing.md,
-            borderWidth: 1, borderColor: '#ef444440', gap: spacing.xs,
-        },
-        resultWrongText: { fontSize: fontSize.lg, fontWeight: '600', color: '#ef4444', flexDirection: 'row' },
-        resultAnswer: { fontSize: fontSize.md, color: colors.text, fontWeight: '500' },
-        nextBtn: {
-            backgroundColor: colors.accent, borderRadius: radii.md, paddingVertical: spacing.md, alignItems: 'center',
-        },
-        nextBtnText: { fontSize: fontSize.md, fontWeight: '700', color: '#1a1a18' },
-        // Complete
-        completeScroll: { alignItems: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing['2xl'], gap: spacing.md },
-        completeTitle: { fontSize: fontSize['2xl'], fontWeight: '700', color: colors.text },
-        completeSubtitle: { fontSize: fontSize.md, color: colors.textSecondary },
-        statsRow: { flexDirection: 'row', gap: spacing.md, marginVertical: spacing.md, width: '100%' },
-        statCard: {
-            backgroundColor: colors.surface, borderRadius: radii.lg, padding: spacing.lg,
-            alignItems: 'center', flex: 1, borderWidth: 1, borderColor: colors.border,
-        },
-        statNumber: { fontSize: fontSize['2xl'], fontWeight: '700', color: '#22c55e' },
-        statLabel: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: spacing.xs },
-        reviewSection: { width: '100%', gap: spacing.sm, marginTop: spacing.md },
-        reviewTitle: { fontSize: fontSize.lg, fontWeight: '600', color: colors.text },
-        reviewCard: {
-            backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.md,
-            borderWidth: 1, borderColor: '#ef444430', gap: spacing.xs,
-        },
-        reviewQuestion: { fontSize: fontSize.md, fontWeight: '600', color: colors.text },
-        reviewYours: { fontSize: fontSize.sm, color: '#ef4444' },
-        reviewCorrect: { fontSize: fontSize.sm, color: '#22c55e', fontWeight: '500' },
-        completeActions: { width: '100%', gap: spacing.sm, marginTop: spacing.lg },
-        actionBtn: {
-            flexDirection: 'row', backgroundColor: colors.accent, borderRadius: radii.md,
-            paddingVertical: spacing.md, alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
-        },
-        actionBtnOutline: {
-            backgroundColor: 'transparent', borderRadius: radii.md,
-            paddingVertical: spacing.md, alignItems: 'center', justifyContent: 'center',
-            borderWidth: 1, borderColor: colors.accent,
-        },
-        actionBtnText: { fontSize: fontSize.md, fontWeight: '700', color: '#1a1a18' },
+        secondaryButtonText: { fontFamily: fonts.displayBold, fontSize: fontSize.md, color: botanical.parchment },
+        textLink: { alignItems: 'center', paddingVertical: spacing.sm },
+        textLinkText: { fontFamily: fonts.body, fontSize: fontSize.md, color: colors.textSecondary },
     });
 }

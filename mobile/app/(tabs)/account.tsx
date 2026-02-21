@@ -1,26 +1,13 @@
 import {
-    View,
-    Text,
-    Pressable,
-    StyleSheet,
-    ScrollView,
-    Alert,
-    ImageBackground,
+    View, Text, Pressable, StyleSheet, ScrollView, Alert, ImageBackground
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery } from '@tanstack/react-query';
 import {
-    LogOut,
-    ChevronRight,
-    Settings,
-    Palette,
-    Users,
-    MessageSquare,
-    Shield,
-    Sprout,
-    Pencil,
-    User,
+    LogOut, ChevronRight, Settings, Users, MessageCircle, Shield, Edit3, Leaf
 } from 'lucide-react-native';
+import Svg, { Defs, RadialGradient as SVGRadialGradient, Stop, Rect } from 'react-native-svg';
 import { useThemeStore } from '../../src/stores/themeStore';
 import { useAuthStore } from '../../src/stores/authStore';
 import { api } from '../../src/lib/api';
@@ -30,6 +17,20 @@ export default function AccountScreen() {
     const colors = useThemeStore((s) => s.colors);
     const { user, logout } = useAuthStore();
     const router = useRouter();
+    const insets = useSafeAreaInsets();
+
+    const { data: friendsData } = useQuery({
+        queryKey: ['friends'],
+        queryFn: api.getFriends,
+    });
+
+    const { data: unreadData } = useQuery({
+        queryKey: ['unreadCount'],
+        queryFn: api.getUnreadCount,
+    });
+
+    const friendsCount = friendsData?.filter(f => f.status === 'accepted').length || 0;
+    const unreadCount = unreadData?.count || 0;
 
     const handleLogout = () => {
         Alert.alert('Log Out', 'Are you sure you want to log out?', [
@@ -47,156 +48,197 @@ export default function AccountScreen() {
 
     const styles = makeStyles(colors);
 
-    const menuItems = [
-        { icon: Pencil, label: 'Edit Profile', onPress: () => router.push('/edit-profile') },
-        { icon: Palette, label: 'Themes', onPress: () => router.push('/themes') },
-        { icon: Sprout, label: 'Garden', onPress: () => router.push('/garden') },
-        { icon: Users, label: 'Friends', onPress: () => router.push('/friends') },
-        { icon: MessageSquare, label: 'Messages', onPress: () => router.push('/messages') },
-        { icon: Shield, label: 'Two-Factor Auth', onPress: () => router.push('/two-factor') },
-        { icon: Settings, label: 'Settings', onPress: () => router.push('/settings') },
-        ...(user?.isAdmin || user?.isOwner ? [{ icon: Shield, label: 'Admin Panel', onPress: () => router.push('/admin') }] : []),
-    ];
+    if (!user) return <View style={styles.container} />;
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <ScrollView contentContainerStyle={styles.scroll}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <View style={styles.tagBadge}>
-                        <Text style={styles.tagBadgeText}>PROFILE</Text>
-                    </View>
-                    <Text style={styles.pageTitle}>Account</Text>
-                </View>
-
-                {/* Profile Card — Herbarium Style */}
-                <View style={styles.profileCard}>
-                    {/* Paper overlay */}
-                    <ImageBackground
-                        source={{ uri: 'https://www.transparenttextures.com/patterns/natural-paper.png' }}
-                        style={StyleSheet.absoluteFill}
-                        imageStyle={{ opacity: 0.5 }}
-                    />
-                    {/* Tape accent */}
-                    <View style={styles.tapeAccent} />
-
-                    <View style={styles.profileContent}>
-                        <View style={styles.avatar}>
-                            <Text style={styles.avatarText}>
-                                {user?.username?.charAt(0).toUpperCase() || '?'}
-                            </Text>
+        <View style={styles.container}>
+            <ScrollView contentContainerStyle={styles.scroll} bounces={false}>
+                {/* Atmospheric Header */}
+                <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+                    <View style={StyleSheet.absoluteFill}>
+                        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0f2026' }]} />
+                        <Svg height="100%" width="100%" style={StyleSheet.absoluteFill}>
+                            <Defs>
+                                <SVGRadialGradient id="glow" cx="50%" cy="50%" rx="80%" ry="80%">
+                                    <Stop offset="0%" stopColor="rgba(122,158,114,0.15)" />
+                                    <Stop offset="100%" stopColor="transparent" />
+                                </SVGRadialGradient>
+                            </Defs>
+                            <Rect x="0" y="0" width="100%" height="100%" fill="url(#glow)" />
+                        </Svg>
+                        <ImageBackground
+                            source={{ uri: 'https://www.transparenttextures.com/patterns/cubes.png' }}
+                            style={[StyleSheet.absoluteFill, { opacity: 0.1 }]}
+                        />
+                        {/* Decorative Leaves */}
+                        <View style={{ position: 'absolute', bottom: -30, right: -30, transform: [{ rotate: '12deg' }], opacity: 0.05 }}>
+                            <Leaf size={160} color={botanical.forest} />
                         </View>
-                        <Text style={styles.username}>{user?.username}</Text>
-                        <Text style={styles.email}>{user?.email}</Text>
-                        {user?.role && user.role !== 'user' && (
-                            <View style={styles.roleBadge}>
-                                <Text style={styles.roleBadgeText}>
-                                    {user.role.toUpperCase()}
-                                </Text>
+                        <View style={{ position: 'absolute', top: -10, left: -20, transform: [{ rotate: '-12deg' }], opacity: 0.02 }}>
+                            <Leaf size={120} color={botanical.forest} />
+                        </View>
+                    </View>
+
+                    {/* Avatar Overlap */}
+                    <View style={styles.avatarWrapper}>
+                        <View style={styles.avatar}>
+                            {user?.avatar ? (
+                                <ImageBackground source={{ uri: user.avatar }} style={styles.avatarImage} imageStyle={{ borderRadius: 48 }} />
+                            ) : (
+                                <Text style={styles.avatarText}>{user?.username?.charAt(0).toUpperCase() || '?'}</Text>
+                            )}
+                        </View>
+                        {(user?.isAdmin || user?.isOwner) && (
+                            <View style={[styles.shieldBadge, { backgroundColor: user?.isOwner ? '#f59e0b' : '#ef4444' }]}>
+                                <Shield size={14} color="#fff" />
                             </View>
                         )}
-                        {user?.bio ? <Text style={styles.bio}>{user.bio}</Text> : null}
                     </View>
                 </View>
 
-                {/* Menu */}
-                <View style={styles.menu}>
-                    {menuItems.map((item, index) => (
-                        <Pressable
-                            key={item.label}
-                            style={({ pressed }) => [
-                                styles.menuItem,
-                                index === 0 && styles.menuItemFirst,
-                                index === menuItems.length - 1 && styles.menuItemLast,
-                                pressed && { backgroundColor: colors.border + '30' },
-                            ]}
-                            onPress={item.onPress}
-                        >
-                            <item.icon size={20} color={colors.accent} />
-                            <Text style={styles.menuLabel}>{item.label}</Text>
-                            <ChevronRight size={16} color={colors.textSecondary} />
-                        </Pressable>
-                    ))}
+                {/* User Info */}
+                <View style={styles.userInfo}>
+                    <Text style={styles.username}>{user?.username}</Text>
+                    <Text style={styles.email}>{user?.email}</Text>
+                    {user?.bio ? <Text style={styles.bio}>"{user.bio}"</Text> : null}
                 </View>
 
-                {/* Logout */}
-                <Pressable
-                    style={({ pressed }) => [styles.logoutButton, pressed && { opacity: 0.85 }]}
-                    onPress={handleLogout}
-                >
-                    <LogOut size={18} color="#ef4444" />
-                    <Text style={styles.logoutText}>LOG OUT</Text>
-                </Pressable>
+                {/* Grid Stats */}
+                <View style={styles.statsGrid}>
+                    <Pressable style={styles.statCard} onPress={() => router.push('/friends')}>
+                        <View style={styles.statIconWrapper}>
+                            <Users size={20} color={botanical.forest} />
+                        </View>
+                        <Text style={styles.statValue}>{friendsCount}</Text>
+                        <Text style={styles.statLabel}>FRIENDS</Text>
+                    </Pressable>
+
+                    <Pressable style={styles.statCard} onPress={() => router.push('/messages')}>
+                        <View style={styles.statIconWrapper}>
+                            <MessageCircle size={20} color={botanical.forest} />
+                            {unreadCount > 0 && (
+                                <View style={styles.unreadBadge}>
+                                    <Text style={styles.unreadText}>{unreadCount}</Text>
+                                </View>
+                            )}
+                        </View>
+                        <Text style={styles.statValue}>{unreadCount}</Text>
+                        <Text style={styles.statLabel}>MESSAGES</Text>
+                    </Pressable>
+                </View>
+
+                {/* Menu List */}
+                <View style={styles.menuContainer}>
+                    {(user?.isAdmin || user?.isOwner) && (
+                        <Pressable style={[styles.menuItem, { borderColor: 'rgba(245, 158, 11, 0.2)' }]} onPress={() => router.push('/admin')}>
+                            <View style={[styles.menuIconBg, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                                <Shield size={20} color="#d97706" />
+                            </View>
+                            <View style={styles.menuTexts}>
+                                <Text style={styles.menuTitle}>Admin Panel</Text>
+                                <Text style={styles.menuDesc}>Manage users and content</Text>
+                            </View>
+                            <ChevronRight size={20} color={colors.border} />
+                        </Pressable>
+                    )}
+
+                    <Pressable style={styles.menuItem} onPress={() => router.push('/edit-profile')}>
+                        <View style={styles.menuIconBg}>
+                            <Edit3 size={20} color={colors.textSecondary} />
+                        </View>
+                        <View style={styles.menuTexts}>
+                            <Text style={styles.menuTitle}>Edit Profile</Text>
+                            <Text style={styles.menuDesc}>Update your avatar and bio</Text>
+                        </View>
+                        <ChevronRight size={20} color={colors.border} />
+                    </Pressable>
+
+                    <Pressable style={styles.menuItem} onPress={() => router.push('/settings')}>
+                        <View style={styles.menuIconBg}>
+                            <Settings size={20} color={colors.textSecondary} />
+                        </View>
+                        <View style={styles.menuTexts}>
+                            <Text style={styles.menuTitle}>Settings</Text>
+                            <Text style={styles.menuDesc}>Security, notifications, and more</Text>
+                        </View>
+                        <ChevronRight size={20} color={colors.border} />
+                    </Pressable>
+
+                    <Pressable style={[styles.menuItem, { borderColor: 'rgba(239, 68, 68, 0.2)', marginTop: spacing.md }]} onPress={handleLogout}>
+                        <View style={[styles.menuIconBg, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+                            <LogOut size={20} color="#ef4444" />
+                        </View>
+                        <View style={styles.menuTexts}>
+                            <Text style={[styles.menuTitle, { color: '#ef4444' }]}>Sign Out</Text>
+                        </View>
+                    </Pressable>
+                </View>
+
+                <Text style={styles.versionText}>Riven v1.0.0</Text>
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 }
 
 function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors']) {
     return StyleSheet.create({
-        container: { flex: 1, backgroundColor: 'transparent' },
-        scroll: { paddingHorizontal: spacing.md, paddingVertical: spacing.lg, gap: spacing.lg },
-        header: { paddingHorizontal: spacing.xs },
-        tagBadge: {
-            backgroundColor: colors.accent, paddingHorizontal: spacing.sm + 2, paddingVertical: 2,
-            borderRadius: radii.sm, alignSelf: 'flex-start', marginBottom: spacing.xs,
+        container: { flex: 1, backgroundColor: colors.bg },
+        scroll: { paddingBottom: spacing['3xl'] * 2 },
+        // Header
+        headerContainer: {
+            height: 200, position: 'relative', marginBottom: 60,
+            borderBottomLeftRadius: 48, borderBottomRightRadius: 48, overflow: 'hidden'
         },
-        tagBadgeText: { fontFamily: fonts.monoBold, fontSize: 9, color: botanical.ink, letterSpacing: 1.5 },
-        pageTitle: { fontFamily: fonts.displayBold, fontSize: fontSize['4xl'], color: colors.text, letterSpacing: -1 },
-        // Herbarium Profile Card
-        profileCard: {
-            backgroundColor: botanical.paper,
-            borderRadius: radii.xl,
-            overflow: 'hidden',
-            borderWidth: 1,
-            borderColor: botanical.tapePin + '60',
-            position: 'relative',
-            ...cardShadow,
-        },
-        paperOverlay: {
-            ...StyleSheet.absoluteFillObject,
-            backgroundColor: 'rgba(255,255,255,0.15)',
-        },
-        tapeAccent: {
-            position: 'absolute', top: -1, left: '30%',
-            width: 40, height: 12, backgroundColor: botanical.tape,
-            transform: [{ rotate: '-2deg' }], borderRadius: 2, zIndex: 10, opacity: 0.7,
-        },
-        profileContent: {
-            alignItems: 'center', padding: spacing.xl, paddingTop: spacing.xl + 8, zIndex: 5,
+        avatarWrapper: {
+            position: 'absolute', bottom: -48, left: '50%', transform: [{ translateX: -48 }], zIndex: 10
         },
         avatar: {
-            width: 72, height: 72, borderRadius: 36,
-            backgroundColor: botanical.forest + '20', justifyContent: 'center', alignItems: 'center',
-            marginBottom: spacing.md, borderWidth: 2, borderColor: botanical.forest,
+            width: 96, height: 96, borderRadius: 48, backgroundColor: colors.surface,
+            borderWidth: 4, borderColor: colors.bg, justifyContent: 'center', alignItems: 'center',
+            shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10
         },
-        avatarText: { fontFamily: fonts.displayBold, fontSize: fontSize['2xl'], color: botanical.forest },
-        username: { fontFamily: fonts.displayBoldItalic, fontSize: fontSize['2xl'], color: botanical.ink },
-        email: { fontFamily: fonts.mono, fontSize: fontSize.xs, color: botanical.ink + '60', marginTop: spacing.xs },
-        roleBadge: {
-            backgroundColor: colors.accent + '20', paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
-            borderRadius: radii.full, marginTop: spacing.sm,
+        avatarText: { fontFamily: fonts.displayBold, fontSize: 36, color: colors.text },
+        avatarImage: { width: '100%', height: '100%' },
+        shieldBadge: {
+            position: 'absolute', bottom: 4, right: 4, width: 28, height: 28, borderRadius: 14,
+            justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: colors.bg, ...cardShadow
         },
-        roleBadgeText: { fontFamily: fonts.monoBold, fontSize: 10, color: colors.accent, letterSpacing: 1 },
-        bio: { fontFamily: fonts.bodyItalic, fontSize: fontSize.sm, color: botanical.ink + '80', textAlign: 'center', marginTop: spacing.md },
+        // Info
+        userInfo: { alignItems: 'center', paddingHorizontal: spacing.lg, marginBottom: spacing.xl },
+        username: { fontFamily: fonts.displayBold, fontSize: fontSize['2xl'], color: colors.text, marginBottom: 2 },
+        email: { fontFamily: fonts.mono, fontSize: fontSize.sm, color: botanical.sepia, marginBottom: spacing.sm },
+        bio: { fontFamily: fonts.bodyItalic, fontSize: fontSize.sm, color: colors.textSecondary, textAlign: 'center', maxWidth: 280 },
+        // Stats
+        statsGrid: { flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg, marginBottom: spacing.xl },
+        statCard: {
+            flex: 1, backgroundColor: colors.surface, borderRadius: radii.xl, padding: spacing.lg,
+            alignItems: 'center', borderWidth: 1, borderColor: colors.border, ...cardShadow
+        },
+        statIconWrapper: {
+            width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(122,158,114,0.1)',
+            justifyContent: 'center', alignItems: 'center', marginBottom: spacing.sm, position: 'relative'
+        },
+        unreadBadge: {
+            position: 'absolute', top: -2, right: -4, backgroundColor: '#ef4444', borderWidth: 2, borderColor: colors.surface,
+            borderRadius: 10, minWidth: 20, height: 20, justifyContent: 'center', alignItems: 'center'
+        },
+        unreadText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+        statValue: { fontFamily: fonts.displayBold, fontSize: fontSize.xl, color: colors.text },
+        statLabel: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.5, color: botanical.sepia, marginTop: 2 },
         // Menu
-        menu: {
-            backgroundColor: colors.surface, borderRadius: radii.lg,
-            borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
-        },
+        menuContainer: { paddingHorizontal: spacing.lg, gap: spacing.sm },
         menuItem: {
-            flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md, paddingHorizontal: spacing.md,
-            gap: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border,
+            flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md,
+            backgroundColor: colors.surface, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.border, ...cardShadow
         },
-        menuItemFirst: { borderTopLeftRadius: radii.lg, borderTopRightRadius: radii.lg },
-        menuItemLast: { borderBottomWidth: 0, borderBottomLeftRadius: radii.lg, borderBottomRightRadius: radii.lg },
-        menuLabel: { flex: 1, fontFamily: fonts.body, fontSize: fontSize.md, color: colors.text },
-        // Logout
-        logoutButton: {
-            flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
-            paddingVertical: spacing.md, backgroundColor: colors.surface,
-            borderRadius: radii.lg, borderWidth: 1, borderColor: '#ef444430',
+        menuIconBg: {
+            width: 40, height: 40, borderRadius: radii.md, backgroundColor: colors.bg,
+            justifyContent: 'center', alignItems: 'center'
         },
-        logoutText: { fontFamily: fonts.monoBold, fontSize: fontSize.sm, color: '#ef4444', letterSpacing: 1.5 },
+        menuTexts: { flex: 1 },
+        menuTitle: { fontFamily: fonts.bodyBold, fontSize: fontSize.md, color: colors.text, marginBottom: 2 },
+        menuDesc: { fontFamily: fonts.body, fontSize: fontSize.xs, color: botanical.sepia },
+        // Version
+        versionText: { fontFamily: fonts.mono, fontSize: fontSize.xs, color: botanical.sepia + '80', textAlign: 'center', marginTop: spacing.xl * 1.5 }
     });
 }

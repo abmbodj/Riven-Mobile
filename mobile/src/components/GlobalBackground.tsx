@@ -37,6 +37,21 @@ export default function GlobalBackground() {
             </Svg>
 
             {/* Noise Texture Overlay fallback: we use a semi-transparent view or image if needed, but in RN plain SVG with feTurbulence is buggy, so we omit the visual noise or load a png if required. Since the mesh gradient provides 99% of the vibe, we'll keep it clean. */}
+            <View
+                style={[
+                    StyleSheet.absoluteFill,
+                    { opacity: 0.03, zIndex: 9998 }
+                ]}
+            >
+                <div style={{
+                    position: 'absolute',
+                    top: 0, right: 0, bottom: 0, left: 0,
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'repeat',
+                    backgroundSize: '256px 256px',
+                    mixBlendMode: 'overlay',
+                }} />
+            </View>
         </View>
     );
 }

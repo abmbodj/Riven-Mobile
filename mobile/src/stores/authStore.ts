@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 export interface User {
     id: number;
@@ -37,17 +38,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     isAuthenticated: false,
 
     setAuth: async (user, token) => {
-        await SecureStore.setItemAsync(TOKEN_KEY, token);
+        if (Platform.OS === 'web') {
+            localStorage.setItem(TOKEN_KEY, token);
+        } else {
+            await SecureStore.setItemAsync(TOKEN_KEY, token);
+        }
         set({ user, token, isAuthenticated: true, isLoading: false });
     },
 
     logout: async () => {
-        await SecureStore.deleteItemAsync(TOKEN_KEY);
+        if (Platform.OS === 'web') {
+            localStorage.removeItem(TOKEN_KEY);
+        } else {
+            await SecureStore.deleteItemAsync(TOKEN_KEY);
+        }
         set({ user: null, token: null, isAuthenticated: false, isLoading: false });
     },
 
     loadToken: async () => {
-        const token = await SecureStore.getItemAsync(TOKEN_KEY);
+        const token = Platform.OS === 'web'
+            ? localStorage.getItem(TOKEN_KEY)
+            : await SecureStore.getItemAsync(TOKEN_KEY);
         if (token) {
             set({ token });
         }

@@ -17,6 +17,7 @@ import { useAuthStore } from '../../src/stores/authStore';
 import { useThemeStore } from '../../src/stores/themeStore';
 import { api } from '../../src/lib/api';
 import { fonts, spacing, radii, fontSize, botanical } from '../../src/constants/tokens';
+import GlobalBackground from '../../src/components/GlobalBackground';
 
 export default function LoginScreen() {
     const colors = useThemeStore((s) => s.colors);
@@ -68,6 +69,7 @@ export default function LoginScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
+            <GlobalBackground />
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
                 <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
@@ -156,35 +158,38 @@ export default function LoginScreen() {
 
 function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors']) {
     return StyleSheet.create({
-        container: { flex: 1, backgroundColor: 'transparent' },
+        container: { flex: 1, backgroundColor: botanical.ink },
         scroll: {
-            paddingHorizontal: spacing.lg,
-            paddingTop: spacing['2xl'],
-            paddingBottom: spacing['2xl'],
+            paddingHorizontal: spacing.xl,
+            paddingTop: spacing['3xl'],
+            paddingBottom: spacing['3xl'],
         },
         backLink: {
             flexDirection: 'row',
             alignItems: 'center',
-            gap: spacing.xs,
+            gap: spacing.sm,
             marginBottom: spacing.xl,
+            opacity: 0.8,
         },
         backText: {
             fontFamily: fonts.mono,
             fontSize: fontSize.xs,
-            color: colors.accent,
+            color: colors.textSecondary,
             letterSpacing: 1,
+            textTransform: 'uppercase',
         },
         title: {
-            fontFamily: fonts.displayBoldItalic,
-            fontSize: fontSize['4xl'],
-            color: colors.text,
-            marginBottom: spacing.sm,
+            fontFamily: fonts.displayLight,
+            fontSize: fontSize['3xl'],
+            color: botanical.parchment,
+            marginBottom: spacing.xs,
         },
         subtitle: {
             fontFamily: fonts.body,
-            fontSize: fontSize.md,
+            fontSize: fontSize.sm,
             color: colors.textSecondary,
             marginBottom: spacing.xl,
+            fontWeight: '300',
         },
         errorBox: {
             backgroundColor: '#ef444415',
@@ -200,23 +205,26 @@ function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors'])
             color: '#ef4444',
         },
         label: {
-            fontFamily: fonts.monoBold,
+            fontFamily: fonts.mono,
             fontSize: fontSize.xs,
-            color: colors.text,
+            color: colors.accent,
+            opacity: 0.8,
             letterSpacing: 1.5,
-            marginBottom: spacing.sm,
+            textTransform: 'uppercase',
+            marginBottom: spacing.xs,
             marginTop: spacing.md,
+            marginLeft: spacing.xs,
         },
         input: {
-            backgroundColor: colors.surface,
+            backgroundColor: 'rgba(0, 0, 0, 0.2)',
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: 'rgba(255, 255, 255, 0.1)',
             borderRadius: radii.md,
             paddingHorizontal: spacing.md,
             paddingVertical: spacing.md + 2,
             fontFamily: fonts.body,
             fontSize: fontSize.md,
-            color: colors.text,
+            color: botanical.parchment,
             marginBottom: spacing.md,
         },
         passwordRow: {
@@ -231,46 +239,49 @@ function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors'])
         },
         loginButton: {
             backgroundColor: colors.accent,
-            borderRadius: radii.xl,
-            paddingVertical: spacing.md + 4,
+            borderRadius: radii.md,
+            paddingVertical: spacing.md + 2,
             alignItems: 'center',
             justifyContent: 'center',
-            marginTop: spacing.lg,
-            minHeight: 52,
+            marginTop: spacing.md,
+            minHeight: 56,
             shadowColor: colors.accent,
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 24,
+            shadowOpacity: 0.15,
+            shadowRadius: 20,
             elevation: 4,
         },
         loginButtonText: {
-            fontFamily: fonts.monoBold,
-            fontSize: fontSize.md,
+            fontFamily: fonts.display,
+            fontWeight: '600',
+            fontSize: fontSize.sm,
             color: botanical.ink,
             letterSpacing: 2,
+            textTransform: 'uppercase',
         },
         switchText: {
             fontFamily: fonts.body,
-            fontSize: fontSize.md,
+            fontSize: fontSize.sm,
             color: colors.textSecondary,
             textAlign: 'center',
-            marginTop: spacing.xl,
+            marginTop: spacing['2xl'],
             marginBottom: spacing.md,
         },
         createButton: {
             borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: radii.xl,
-            paddingVertical: spacing.md + 4,
+            borderColor: colors.accent + '4D', // 30% opacity
+            borderRadius: radii.md,
+            paddingVertical: spacing.md,
             alignItems: 'center',
             justifyContent: 'center',
-            minHeight: 52,
+            minHeight: 48,
         },
         createButtonText: {
-            fontFamily: fonts.monoBold,
-            fontSize: fontSize.sm,
-            color: botanical.forest,
-            letterSpacing: 2,
+            fontFamily: fonts.display,
+            fontSize: fontSize.xs,
+            color: colors.accent,
+            letterSpacing: 1.5,
+            textTransform: 'uppercase',
         },
     });
 }

@@ -16,10 +16,16 @@ import {
     ThumbsDown,
     RotateCcw,
     CheckCircle,
+    X,
+    Shuffle,
+    ChevronLeft,
+    ChevronRight,
+    Brain,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../../src/stores/themeStore';
 import { api, Card } from '../../../src/lib/api';
-import { spacing, radii, fontSize, cardShadow } from '../../../src/constants/tokens';
+import { fonts, spacing, radii, fontSize, botanical, cardShadow } from '../../../src/constants/tokens';
+import GlobalBackground from '../../../src/components/GlobalBackground';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -108,10 +114,12 @@ export default function StudyModeScreen() {
 
         return (
             <SafeAreaView style={styles.container}>
+                <GlobalBackground />
                 <View style={styles.completeContainer}>
-                    <CheckCircle size={64} color={colors.accent} />
-                    <Text style={styles.completeTitle}>Session Complete!</Text>
-                    <Text style={styles.completeSubtitle}>{deck?.title}</Text>
+                    <Text style={styles.completeTitle}>Session complete</Text>
+                    <Text style={styles.completeSubtitle}>
+                        {correct}/{total} correct · {percentage}%
+                    </Text>
 
                     <View style={styles.statsRow}>
                         <View style={styles.statCard}>
@@ -130,17 +138,16 @@ export default function StudyModeScreen() {
 
                     <View style={styles.completeActions}>
                         <Pressable
-                            style={({ pressed }) => [styles.completeButton, pressed && { opacity: 0.85 }]}
+                            style={({ pressed }) => [styles.completeButton, pressed && { transform: [{ scale: 0.97 }] }]}
                             onPress={resetSession}
                         >
-                            <RotateCcw size={18} color="#1a1a18" />
                             <Text style={styles.completeButtonText}>Study Again</Text>
                         </Pressable>
                         <Pressable
-                            style={({ pressed }) => [styles.completeButtonOutline, pressed && { opacity: 0.85 }]}
+                            style={({ pressed }) => [styles.completeButtonOutline, pressed && { transform: [{ scale: 0.98 }] }]}
                             onPress={() => router.back()}
                         >
-                            <Text style={[styles.completeButtonText, { color: colors.accent }]}>Done</Text>
+                            <Text style={styles.completeButtonOutlineText}>Back to Deck</Text>
                         </Pressable>
                     </View>
                 </View>
@@ -150,166 +157,343 @@ export default function StudyModeScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
+            <GlobalBackground />
+
             {/* Header */}
             <View style={styles.header}>
-                <Pressable onPress={() => router.back()} hitSlop={12}>
-                    <ArrowLeft size={24} color={colors.text} />
+                <Pressable onPress={() => router.back()} hitSlop={12} style={styles.headerButton}>
+                    <X size={20} color={colors.textSecondary} />
                 </Pressable>
-                <Text style={styles.progress}>
-                    {currentIndex + 1} / {cards.length}
-                </Text>
-                <View style={{ width: 24 }} />
+
+                <View style={styles.progressContainer}>
+                    <View style={styles.progressBar}>
+                        <View
+                            style={[
+                                styles.progressFill,
+                                { width: `${((currentIndex + 1) / cards.length) * 100}%` },
+                            ]}
+                        />
+                    </View>
+                    <Text style={styles.progressText}>
+                        {currentIndex + 1} / {cards.length}
+                    </Text>
+                </View>
+
+                <Pressable style={styles.headerButton}>
+                    <Shuffle size={20} color={colors.textSecondary} />
+                </Pressable>
             </View>
 
-            {/* Progress Bar */}
-            <View style={styles.progressBar}>
-                <View
-                    style={[
-                        styles.progressFill,
-                        { width: `${((currentIndex + 1) / cards.length) * 100}%` },
-                    ]}
-                />
+            {/* Spaced Repetition Toggle */}
+            <View style={styles.srContainer}>
+                <Pressable style={styles.srToggle}>
+                    <Brain size={14} color={colors.textSecondary} />
+                    <Text style={styles.srText}>Spaced Repetition OFF</Text>
+                </Pressable>
             </View>
 
             {/* Flashcard */}
             {currentCard && (
-                <Pressable style={styles.cardContainer} onPress={flipCard}>
-                    <Animated.View
-                        style={[
-                            styles.card,
-                            {
-                                transform: [{ perspective: 1000 }, { rotateY: frontRotate }],
-                                opacity: frontOpacity,
-                            },
-                        ]}
-                    >
-                        <Text style={styles.cardLabel}>Front</Text>
-                        <Text style={styles.cardText}>{currentCard.front}</Text>
-                        <Text style={styles.tapHint}>Tap to flip</Text>
-                    </Animated.View>
-                    <Animated.View
-                        style={[
-                            styles.card,
-                            styles.cardBack,
-                            {
-                                transform: [{ perspective: 1000 }, { rotateY: backRotate }],
-                                opacity: backOpacity,
-                            },
-                        ]}
-                    >
-                        <Text style={styles.cardLabel}>Back</Text>
-                        <Text style={styles.cardText}>{currentCard.back}</Text>
-                    </Animated.View>
-                </Pressable>
-            )}
-
-            {/* Answer Buttons */}
-            {isFlipped && (
-                <View style={styles.answerButtons}>
-                    <Pressable
-                        style={({ pressed }) => [styles.answerButton, styles.incorrectButton, pressed && { opacity: 0.85 }]}
-                        onPress={() => handleAnswer(false)}
-                    >
-                        <ThumbsDown size={22} color="#ffffff" />
-                        <Text style={styles.answerButtonText}>Incorrect</Text>
-                    </Pressable>
-                    <Pressable
-                        style={({ pressed }) => [styles.answerButton, styles.correctButton, pressed && { opacity: 0.85 }]}
-                        onPress={() => handleAnswer(true)}
-                    >
-                        <ThumbsUp size={22} color="#ffffff" />
-                        <Text style={styles.answerButtonText}>Correct</Text>
+                <View style={styles.cardContainer}>
+                    <Pressable onPress={flipCard} style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+                        <View style={{ width: '100%', maxWidth: 340, aspectRatio: 3 / 4 }}>
+                            <Animated.View
+                                style={[
+                                    styles.card,
+                                    styles.cardFrontContainer,
+                                    {
+                                        transform: [{ perspective: 1200 }, { rotateY: frontRotate }],
+                                        opacity: frontOpacity,
+                                    },
+                                ]}
+                            >
+                                <Text style={styles.cardLabel}>Question</Text>
+                                <Text style={styles.cardTextFront} adjustsFontSizeToFit minimumFontScale={0.5} numberOfLines={8}>{currentCard.front}</Text>
+                                <Text style={styles.tapHint}>tap to reveal</Text>
+                            </Animated.View>
+                            <Animated.View
+                                style={[
+                                    styles.card,
+                                    styles.cardBackContainer,
+                                    {
+                                        transform: [{ perspective: 1200 }, { rotateY: backRotate }],
+                                        opacity: backOpacity,
+                                    },
+                                ]}
+                            >
+                                <Text style={styles.cardLabelBack}>Answer</Text>
+                                <Text style={styles.cardTextBack} adjustsFontSizeToFit minimumFontScale={0.5} numberOfLines={8}>{currentCard.back}</Text>
+                                <Text style={styles.tapHintBack}>tap to flip back</Text>
+                            </Animated.View>
+                        </View>
                     </Pressable>
                 </View>
             )}
+
+            {/* Answer Buttons */}
+            <View style={styles.navigationOptions}>
+                {isFlipped ? (
+                    <View style={styles.answerButtons}>
+                        <Pressable
+                            style={({ pressed }) => [styles.answerButton, styles.incorrectButton, pressed && { transform: [{ scale: 0.93 }] }]}
+                            onPress={() => handleAnswer(false)}
+                        >
+                            <ThumbsDown size={20} color="#f87171" />
+                            <Text style={styles.incorrectButtonText}>Didn't Know</Text>
+                        </Pressable>
+                        <Pressable
+                            style={({ pressed }) => [styles.answerButton, styles.correctButton, pressed && { transform: [{ scale: 0.93 }] }]}
+                            onPress={() => handleAnswer(true)}
+                        >
+                            <ThumbsUp size={20} color="#4ade80" />
+                            <Text style={styles.correctButtonText}>Knew It</Text>
+                        </Pressable>
+                    </View>
+                ) : (
+                    <View style={styles.navButtons}>
+                        <Pressable
+                            style={({ pressed }) => [styles.navIconButton, pressed && { transform: [{ scale: 0.9 }] }, currentIndex === 0 && { opacity: 0.3 }]}
+                            disabled={currentIndex === 0}
+                            onPress={() => setCurrentIndex(i => i - 1)}
+                        >
+                            <ChevronLeft size={24} color={colors.textSecondary} />
+                        </Pressable>
+
+                        <Pressable
+                            style={({ pressed }) => [styles.flipButton, pressed && { transform: [{ scale: 0.95 }] }]}
+                            onPress={flipCard}
+                        >
+                            <RotateCcw size={20} color={colors.textSecondary} />
+                            <Text style={styles.flipButtonText}>Flip</Text>
+                        </Pressable>
+
+                        <Pressable
+                            style={({ pressed }) => [styles.navIconButton, pressed && { transform: [{ scale: 0.9 }] }, currentIndex === cards.length - 1 && { opacity: 0.3 }]}
+                            disabled={currentIndex === cards.length - 1}
+                            onPress={() => setCurrentIndex(i => i + 1)}
+                        >
+                            <ChevronRight size={24} color={colors.textSecondary} />
+                        </Pressable>
+                    </View>
+                )}
+            </View>
         </SafeAreaView>
     );
 }
 
 function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors']) {
     return StyleSheet.create({
-        container: { flex: 1, backgroundColor: 'transparent' },
+        container: { flex: 1, backgroundColor: botanical.ink },
         header: {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
             paddingHorizontal: spacing.md,
-            paddingVertical: spacing.md,
+            height: 56,
         },
-        progress: { fontSize: fontSize.md, fontWeight: '600', color: colors.textSecondary },
+        headerButton: {
+            padding: spacing.sm,
+            marginLeft: -spacing.sm,
+        },
+        progressContainer: {
+            flex: 1,
+            marginHorizontal: spacing.lg,
+            alignItems: 'center',
+        },
         progressBar: {
             height: 4,
-            backgroundColor: colors.border,
-            marginHorizontal: spacing.md,
+            width: '100%',
+            backgroundColor: 'rgba(255,255,255,0.1)',
             borderRadius: 2,
             overflow: 'hidden',
         },
-        progressFill: { height: '100%', backgroundColor: colors.accent, borderRadius: 2 },
+        progressFill: {
+            height: '100%',
+            backgroundColor: botanical.forest,
+            borderRadius: 2
+        },
+        progressText: {
+            fontFamily: fonts.mono,
+            fontSize: 10,
+            color: botanical.sepia,
+            marginTop: 6,
+            letterSpacing: 0.5,
+        },
+        srContainer: {
+            alignItems: 'center',
+            marginVertical: spacing.sm,
+        },
+        srToggle: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.sm,
+            paddingHorizontal: spacing.md,
+            paddingVertical: 6,
+            borderRadius: radii.full,
+            backgroundColor: 'rgba(252, 250, 242, 0.05)',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.05)',
+        },
+        srText: {
+            fontFamily: fonts.mono,
+            fontSize: 11,
+            color: colors.textSecondary,
+            letterSpacing: 0.5,
+        },
         cardContainer: {
             flex: 1,
             justifyContent: 'center',
             alignItems: 'center',
             paddingHorizontal: spacing.lg,
-            paddingVertical: spacing.xl,
+            paddingVertical: spacing.md,
         },
         card: {
-            width: SCREEN_WIDTH - spacing.lg * 2,
-            minHeight: 280,
-            backgroundColor: colors.surface,
-            borderRadius: radii.xl,
+            position: 'absolute',
+            width: '100%',
+            height: '100%',
+            borderRadius: radii['2xl'],
             padding: spacing.xl,
             justifyContent: 'center',
             alignItems: 'center',
-            borderWidth: 1,
-            borderColor: colors.border,
             backfaceVisibility: 'hidden',
             ...cardShadow,
+            shadowColor: '#000',
+            shadowOpacity: 0.3,
+            shadowRadius: 24,
+            shadowOffset: { width: 0, height: 8 },
         },
-        cardBack: {
-            position: 'absolute',
-            backgroundColor: colors.accent + '15',
-            borderColor: colors.accent + '40',
+        cardFrontContainer: {
+            backgroundColor: '#152d34',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.05)',
+        },
+        cardBackContainer: {
+            backgroundColor: botanical.forest,
+            borderWidth: 1,
+            borderColor: 'rgba(122,158,114,0.25)',
         },
         cardLabel: {
             position: 'absolute',
-            top: spacing.md,
-            left: spacing.md,
-            fontSize: fontSize.xs,
-            fontWeight: '600',
-            color: colors.textSecondary,
+            top: spacing.xl,
+            fontFamily: fonts.mono,
+            fontSize: 9,
+            color: botanical.sepia,
             textTransform: 'uppercase',
-            letterSpacing: 1,
+            letterSpacing: 2,
+            transform: [{ rotate: '-2deg' }],
         },
-        cardText: {
+        cardLabelBack: {
+            position: 'absolute',
+            top: spacing.xl,
+            fontFamily: fonts.mono,
+            fontSize: 9,
+            color: 'rgba(255,255,255,0.4)',
+            textTransform: 'uppercase',
+            letterSpacing: 2,
+            transform: [{ rotate: '-2deg' }],
+        },
+        cardTextFront: {
+            fontFamily: fonts.displayBold,
             fontSize: fontSize['2xl'],
-            fontWeight: '600',
-            color: colors.text,
+            color: botanical.parchment,
             textAlign: 'center',
+            lineHeight: 32,
+        },
+        cardTextBack: {
+            fontFamily: fonts.displayBold,
+            fontSize: fontSize['2xl'],
+            color: '#ffffff',
+            textAlign: 'center',
+            lineHeight: 32,
         },
         tapHint: {
             position: 'absolute',
-            bottom: spacing.md,
-            fontSize: fontSize.xs,
-            color: colors.textSecondary,
+            bottom: spacing.xl,
+            fontFamily: fonts.mono,
+            fontSize: 10,
+            color: 'rgba(244, 241, 232, 0.5)',
+            letterSpacing: 0.5,
+        },
+        tapHintBack: {
+            position: 'absolute',
+            bottom: spacing.xl,
+            fontFamily: fonts.mono,
+            fontSize: 10,
+            color: 'rgba(255, 255, 255, 0.3)',
+            letterSpacing: 0.5,
+        },
+        navigationOptions: {
+            paddingHorizontal: spacing.md,
+            paddingBottom: spacing['2xl'],
         },
         answerButtons: {
             flexDirection: 'row',
-            paddingHorizontal: spacing.md,
-            paddingBottom: spacing.xl,
             gap: spacing.md,
+            maxWidth: 380,
+            alignSelf: 'center',
+            width: '100%',
         },
         answerButton: {
             flex: 1,
+            height: 56,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            paddingVertical: spacing.md,
-            borderRadius: radii.md,
+            borderRadius: radii.xl,
+            gap: spacing.sm,
+            borderWidth: 1,
+        },
+        incorrectButton: {
+            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+            borderColor: 'rgba(239, 68, 68, 0.25)',
+        },
+        correctButton: {
+            backgroundColor: 'rgba(34, 197, 94, 0.15)',
+            borderColor: 'rgba(34, 197, 94, 0.25)',
+        },
+        incorrectButtonText: {
+            fontFamily: fonts.displayBold,
+            fontSize: fontSize.md,
+            color: '#f87171'
+        },
+        correctButtonText: {
+            fontFamily: fonts.displayBold,
+            fontSize: fontSize.md,
+            color: '#4ade80'
+        },
+        navButtons: {
+            flexDirection: 'row',
+            gap: spacing.md,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        navIconButton: {
+            width: 56,
+            height: 56,
+            borderRadius: radii.xl,
+            backgroundColor: 'rgba(252, 250, 242, 0.05)',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.05)',
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        flipButton: {
+            height: 56,
+            paddingHorizontal: spacing['2xl'],
+            borderRadius: radii.xl,
+            backgroundColor: 'rgba(252, 250, 242, 0.05)',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.05)',
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
             gap: spacing.sm,
         },
-        incorrectButton: { backgroundColor: '#ef4444' },
-        correctButton: { backgroundColor: '#22c55e' },
-        answerButtonText: { fontSize: fontSize.md, fontWeight: '700', color: '#ffffff' },
+        flipButtonText: {
+            fontFamily: fonts.displayBold,
+            fontSize: fontSize.md,
+            color: botanical.parchment,
+        },
         completeContainer: {
             flex: 1,
             justifyContent: 'center',
@@ -317,39 +501,56 @@ function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors'])
             paddingHorizontal: spacing.xl,
             gap: spacing.md,
         },
-        completeTitle: { fontSize: fontSize['2xl'], fontWeight: '700', color: colors.text },
-        completeSubtitle: { fontSize: fontSize.md, color: colors.textSecondary },
+        completeTitle: {
+            fontFamily: fonts.displayBold,
+            fontSize: fontSize['2xl'],
+            color: botanical.parchment,
+            fontStyle: 'italic',
+        },
+        completeSubtitle: {
+            fontFamily: fonts.mono,
+            fontSize: fontSize.xs,
+            color: botanical.sepia,
+            marginTop: 4,
+        },
         statsRow: { flexDirection: 'row', gap: spacing.md, marginVertical: spacing.lg },
         statCard: {
-            backgroundColor: colors.surface,
+            backgroundColor: 'rgba(252, 250, 242, 0.05)',
             borderRadius: radii.lg,
             padding: spacing.lg,
             alignItems: 'center',
             flex: 1,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: 'rgba(255,255,255,0.05)',
         },
-        statNumber: { fontSize: fontSize['2xl'], fontWeight: '700', color: '#22c55e' },
-        statLabel: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: spacing.xs },
-        completeActions: { width: '100%', gap: spacing.sm, marginTop: spacing.md },
+        statNumber: { fontFamily: fonts.displayBold, fontSize: fontSize['2xl'], color: '#4ade80' },
+        statLabel: { fontFamily: fonts.mono, fontSize: fontSize.xs, color: colors.textSecondary, marginTop: spacing.xs, textTransform: 'uppercase', letterSpacing: 1 },
+        completeActions: { width: '100%', maxWidth: 320, gap: spacing.md, marginTop: spacing.xl },
         completeButton: {
-            flexDirection: 'row',
             backgroundColor: colors.accent,
-            borderRadius: radii.md,
-            paddingVertical: spacing.md,
+            borderRadius: radii.xl,
+            paddingVertical: spacing.lg,
             alignItems: 'center',
             justifyContent: 'center',
-            gap: spacing.sm,
         },
         completeButtonOutline: {
-            backgroundColor: 'transparent',
-            borderRadius: radii.md,
-            paddingVertical: spacing.md,
+            backgroundColor: 'rgba(252, 250, 242, 0.05)',
+            borderRadius: radii.xl,
+            paddingVertical: spacing.lg,
             alignItems: 'center',
             justifyContent: 'center',
             borderWidth: 1,
-            borderColor: colors.accent,
+            borderColor: 'rgba(209, 201, 184, 0.3)',
         },
-        completeButtonText: { fontSize: fontSize.md, fontWeight: '700', color: '#1a1a18' },
+        completeButtonText: {
+            fontFamily: fonts.displayBold,
+            fontSize: fontSize.lg,
+            color: botanical.ink
+        },
+        completeButtonOutlineText: {
+            fontFamily: fonts.displayBold,
+            fontSize: fontSize.lg,
+            color: botanical.parchment
+        },
     });
 }
