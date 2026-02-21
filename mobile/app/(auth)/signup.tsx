@@ -9,64 +9,61 @@ import {
     Platform,
     ScrollView,
     ActivityIndicator,
-    Alert,
 } from 'react-native';
-import { Link } from 'expo-router';
-import { useThemeStore } from '../../src/stores/themeStore';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft } from 'lucide-react-native';
 import { useAuthStore } from '../../src/stores/authStore';
+import { useThemeStore } from '../../src/stores/themeStore';
 import { api } from '../../src/lib/api';
-import { spacing, radii, fontSize } from '../../src/constants/tokens';
+import { fonts, spacing, radii, fontSize, botanical } from '../../src/constants/tokens';
 
 export default function SignupScreen() {
     const colors = useThemeStore((s) => s.colors);
     const { setAuth } = useAuthStore();
+    const router = useRouter();
 
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
     const handleSignup = async () => {
-        if (!username.trim() || !email.trim() || !password.trim()) {
-            Alert.alert('Error', 'All fields are required');
+        setError('');
+        if (!username.trim() || !email.trim() || !password || !confirmPassword) {
+            setError('All fields are required');
             return;
         }
         if (password !== confirmPassword) {
-            Alert.alert('Error', 'Passwords do not match');
+            setError('Passwords do not match');
             return;
         }
         if (password.length < 6) {
-            Alert.alert('Error', 'Password must be at least 6 characters');
+            setError('Password must be at least 6 characters');
             return;
         }
-        if (username.length < 2 || username.length > 30) {
-            Alert.alert('Error', 'Username must be 2-30 characters');
-            return;
-        }
-
         setLoading(true);
         try {
-            const response = await api.register(username.trim(), email.trim(), password);
-
-            if (response.user && response.token) {
+            const res = await api.register(username.trim(), email.trim(), password);
+            if (res.token && res.user) {
                 await setAuth({
-                    id: response.user.id,
-                    username: response.user.username,
-                    email: response.user.email,
-                    shareCode: response.user.shareCode || '',
-                    avatar: response.user.avatar || null,
-                    bio: response.user.bio || '',
-                    role: (response.user.role as 'user' | 'admin' | 'owner') || 'user',
-                    isAdmin: response.user.isAdmin || false,
-                    isOwner: response.user.isOwner || false,
-                    streakData: response.user.streakData || {},
-                    twoFAEnabled: response.user.twoFAEnabled || false,
-                }, response.token);
+                    id: res.user.id,
+                    username: res.user.username,
+                    email: res.user.email,
+                    shareCode: res.user.shareCode || '',
+                    avatar: res.user.avatar || null,
+                    bio: res.user.bio || '',
+                    role: (res.user.role as 'user' | 'admin' | 'owner') || 'user',
+                    isAdmin: res.user.isAdmin || false,
+                    isOwner: res.user.isOwner || false,
+                    streakData: res.user.streakData || {},
+                    twoFAEnabled: res.user.twoFAEnabled || false,
+                }, res.token);
             }
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : 'Registration failed';
-            Alert.alert('Signup Failed', message);
+        } catch (err: any) {
+            setError(err.message || 'Registration failed');
         } finally {
             setLoading(false);
         }
@@ -75,191 +72,127 @@ export default function SignupScreen() {
     const styles = makeStyles(colors);
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-            <ScrollView
-                contentContainerStyle={styles.scroll}
-                keyboardShouldPersistTaps="handled"
-            >
-                {/* Header */}
-                <View style={styles.header}>
-                    <Text style={styles.logoText}>Riven</Text>
-                    <Text style={styles.subtitle}>Create your account</Text>
-                </View>
+        <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+                <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
-                {/* Form */}
-                <View style={styles.form}>
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Username</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Choose a username"
-                            placeholderTextColor={colors.textSecondary}
-                            value={username}
-                            onChangeText={setUsername}
-                            autoCapitalize="none"
-                            autoComplete="username"
-                            textContentType="username"
-                        />
-                    </View>
+                    <Pressable style={styles.backLink} onPress={() => router.push('/(auth)/login')}>
+                        <ArrowLeft size={14} color={colors.accent} />
+                        <Text style={styles.backText}>RETURN TO LOGIN</Text>
+                    </Pressable>
 
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Email</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Enter your email"
-                            placeholderTextColor={colors.textSecondary}
-                            value={email}
-                            onChangeText={setEmail}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            autoComplete="email"
-                            textContentType="emailAddress"
-                        />
-                    </View>
+                    <Text style={styles.title}>Create Account</Text>
+                    <Text style={styles.subtitle}>Register a new research profile.</Text>
 
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Password</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Create a password"
-                            placeholderTextColor={colors.textSecondary}
-                            value={password}
-                            onChangeText={setPassword}
-                            secureTextEntry
-                            autoComplete="new-password"
-                            textContentType="newPassword"
-                        />
-                    </View>
+                    {error ? (
+                        <View style={styles.errorBox}>
+                            <Text style={styles.errorText}>{error}</Text>
+                        </View>
+                    ) : null}
 
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Confirm Password</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Confirm your password"
-                            placeholderTextColor={colors.textSecondary}
-                            value={confirmPassword}
-                            onChangeText={setConfirmPassword}
-                            secureTextEntry
-                            textContentType="newPassword"
-                        />
-                    </View>
+                    <Text style={styles.label}>USERNAME</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={username}
+                        onChangeText={setUsername}
+                        placeholder="Dr. Botanist"
+                        placeholderTextColor={colors.textSecondary + '60'}
+                        autoCapitalize="none"
+                    />
+
+                    <Text style={styles.label}>EMAIL</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={email}
+                        onChangeText={setEmail}
+                        placeholder="researcher@institute.edu"
+                        placeholderTextColor={colors.textSecondary + '60'}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                    />
+
+                    <Text style={styles.label}>PASSWORD</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={password}
+                        onChangeText={setPassword}
+                        placeholder="••••••••"
+                        placeholderTextColor={colors.textSecondary + '60'}
+                        secureTextEntry
+                    />
+
+                    <Text style={styles.label}>CONFIRM PASSWORD</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        placeholder="••••••••"
+                        placeholderTextColor={colors.textSecondary + '60'}
+                        secureTextEntry
+                    />
 
                     <Pressable
-                        style={({ pressed }) => [
-                            styles.button,
-                            pressed && styles.buttonPressed,
-                            loading && styles.buttonDisabled,
-                        ]}
+                        style={({ pressed }) => [styles.registerButton, pressed && { opacity: 0.9, transform: [{ scale: 0.97 }] }]}
                         onPress={handleSignup}
                         disabled={loading}
                     >
                         {loading ? (
-                            <ActivityIndicator color={colors.bg} />
+                            <ActivityIndicator color={botanical.ink} />
                         ) : (
-                            <Text style={styles.buttonText}>Create Account</Text>
+                            <Text style={styles.registerButtonText}>REGISTER</Text>
                         )}
                     </Pressable>
-                </View>
 
-                {/* Footer */}
-                <View style={styles.footer}>
-                    <Text style={styles.footerText}>Already have an account? </Text>
-                    <Link href="/(auth)/login" asChild>
-                        <Pressable>
-                            <Text style={styles.linkText}>Sign in</Text>
-                        </Pressable>
-                    </Link>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+                    <Text style={styles.switchText}>Already have a profile?</Text>
+                    <Pressable
+                        style={({ pressed }) => [styles.loginButton, pressed && { opacity: 0.9 }]}
+                        onPress={() => router.push('/(auth)/login')}
+                    >
+                        <Text style={styles.loginButtonText}>LOGIN</Text>
+                    </Pressable>
+
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 
 function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors']) {
     return StyleSheet.create({
-        container: {
-            flex: 1,
-            backgroundColor: colors.bg,
+        container: { flex: 1, backgroundColor: colors.bg },
+        scroll: { paddingHorizontal: spacing.lg, paddingTop: spacing['2xl'], paddingBottom: spacing['2xl'] },
+        backLink: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xl },
+        backText: { fontFamily: fonts.mono, fontSize: fontSize.xs, color: colors.accent, letterSpacing: 1 },
+        title: { fontFamily: fonts.displayBoldItalic, fontSize: fontSize['4xl'], color: colors.text, marginBottom: spacing.sm },
+        subtitle: { fontFamily: fonts.body, fontSize: fontSize.md, color: colors.textSecondary, marginBottom: spacing.xl },
+        errorBox: {
+            backgroundColor: '#ef444415', borderWidth: 1, borderColor: '#ef444430',
+            borderRadius: radii.md, padding: spacing.md, marginBottom: spacing.md,
         },
-        scroll: {
-            flexGrow: 1,
-            justifyContent: 'center',
-            paddingHorizontal: spacing.lg,
-            paddingVertical: spacing['2xl'],
-        },
-        header: {
-            alignItems: 'center',
-            marginBottom: spacing['2xl'],
-        },
-        logoText: {
-            fontSize: fontSize['3xl'],
-            fontWeight: '300',
-            color: colors.accent,
-            letterSpacing: 4,
-            textTransform: 'uppercase',
-            marginBottom: spacing.sm,
-        },
-        subtitle: {
-            fontSize: fontSize.lg,
-            color: colors.textSecondary,
-        },
-        form: {
-            gap: spacing.md,
-        },
-        inputGroup: {
-            gap: spacing.xs,
-        },
+        errorText: { fontFamily: fonts.mono, fontSize: fontSize.xs, color: '#ef4444' },
         label: {
-            fontSize: fontSize.sm,
-            color: colors.textSecondary,
-            fontWeight: '500',
-            marginLeft: spacing.xs,
+            fontFamily: fonts.monoBold, fontSize: fontSize.xs, color: colors.text,
+            letterSpacing: 1.5, marginBottom: spacing.sm, marginTop: spacing.md,
         },
         input: {
-            backgroundColor: colors.surface,
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: radii.md,
-            paddingHorizontal: spacing.md,
-            paddingVertical: spacing.md,
-            fontSize: fontSize.md,
-            color: colors.text,
+            backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+            borderRadius: radii.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md + 2,
+            fontFamily: fonts.body, fontSize: fontSize.md, color: colors.text, marginBottom: spacing.md,
         },
-        button: {
-            backgroundColor: colors.accent,
-            borderRadius: radii.md,
-            paddingVertical: spacing.md,
-            alignItems: 'center',
-            marginTop: spacing.sm,
+        registerButton: {
+            backgroundColor: colors.accent, borderRadius: radii.xl, paddingVertical: spacing.md + 4,
+            alignItems: 'center', justifyContent: 'center', marginTop: spacing.lg, minHeight: 52,
+            shadowColor: colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 24, elevation: 4,
         },
-        buttonPressed: {
-            opacity: 0.85,
-            transform: [{ scale: 0.98 }],
+        registerButtonText: { fontFamily: fonts.monoBold, fontSize: fontSize.md, color: botanical.ink, letterSpacing: 2 },
+        switchText: {
+            fontFamily: fonts.body, fontSize: fontSize.md, color: colors.textSecondary,
+            textAlign: 'center', marginTop: spacing.xl, marginBottom: spacing.md,
         },
-        buttonDisabled: {
-            opacity: 0.6,
+        loginButton: {
+            borderWidth: 1, borderColor: colors.border, borderRadius: radii.xl,
+            paddingVertical: spacing.md + 4, alignItems: 'center', justifyContent: 'center', minHeight: 52,
         },
-        buttonText: {
-            fontSize: fontSize.md,
-            fontWeight: '700',
-            color: '#1a1a18',
-        },
-        footer: {
-            flexDirection: 'row',
-            justifyContent: 'center',
-            marginTop: spacing.xl,
-        },
-        footerText: {
-            fontSize: fontSize.sm,
-            color: colors.textSecondary,
-        },
-        linkText: {
-            fontSize: fontSize.sm,
-            color: colors.accent,
-            fontWeight: '600',
-        },
+        loginButtonText: { fontFamily: fonts.monoBold, fontSize: fontSize.sm, color: colors.accent, letterSpacing: 2 },
     });
 }

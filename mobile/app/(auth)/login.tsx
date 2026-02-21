@@ -9,55 +9,56 @@ import {
     Platform,
     ScrollView,
     ActivityIndicator,
-    Alert,
 } from 'react-native';
-import { Link } from 'expo-router';
-import { useThemeStore } from '../../src/stores/themeStore';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import { useAuthStore } from '../../src/stores/authStore';
+import { useThemeStore } from '../../src/stores/themeStore';
 import { api } from '../../src/lib/api';
-import { spacing, radii, fontSize } from '../../src/constants/tokens';
+import { fonts, spacing, radii, fontSize, botanical } from '../../src/constants/tokens';
 
 export default function LoginScreen() {
     const colors = useThemeStore((s) => s.colors);
     const { setAuth } = useAuthStore();
+    const router = useRouter();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async () => {
+        setError('');
         if (!email.trim() || !password.trim()) {
-            Alert.alert('Error', 'Email and password are required');
+            setError('All fields are required');
             return;
         }
-
         setLoading(true);
         try {
-            const response = await api.login(email.trim(), password);
-
-            if (response.require2FA) {
-                Alert.alert('2FA Required', '2FA login is not yet supported in the mobile app.');
+            const res = await api.login(email.trim(), password);
+            if (res.require2FA) {
+                setError('2FA is required — mobile 2FA coming soon');
                 return;
             }
-
-            if (response.user && response.token) {
+            if (res.token && res.user) {
                 await setAuth({
-                    id: response.user.id,
-                    username: response.user.username,
-                    email: response.user.email,
-                    shareCode: response.user.shareCode || '',
-                    avatar: response.user.avatar || null,
-                    bio: response.user.bio || '',
-                    role: (response.user.role as 'user' | 'admin' | 'owner') || 'user',
-                    isAdmin: response.user.isAdmin || false,
-                    isOwner: response.user.isOwner || false,
-                    streakData: response.user.streakData || {},
-                    twoFAEnabled: response.user.twoFAEnabled || false,
-                }, response.token);
+                    id: res.user.id,
+                    username: res.user.username,
+                    email: res.user.email,
+                    shareCode: res.user.shareCode || '',
+                    avatar: res.user.avatar || null,
+                    bio: res.user.bio || '',
+                    role: (res.user.role as 'user' | 'admin' | 'owner') || 'user',
+                    isAdmin: res.user.isAdmin || false,
+                    isOwner: res.user.isOwner || false,
+                    streakData: res.user.streakData || {},
+                    twoFAEnabled: res.user.twoFAEnabled || false,
+                }, res.token);
             }
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : 'Login failed';
-            Alert.alert('Login Failed', message);
+        } catch (err: any) {
+            setError(err.message || 'Login failed');
         } finally {
             setLoading(false);
         }
@@ -66,121 +67,145 @@ export default function LoginScreen() {
     const styles = makeStyles(colors);
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-            <ScrollView
-                contentContainerStyle={styles.scroll}
-                keyboardShouldPersistTaps="handled"
-            >
-                {/* Header */}
-                <View style={styles.header}>
-                    <Text style={styles.logoText}>Riven</Text>
-                    <Text style={styles.subtitle}>Welcome back</Text>
-                </View>
+        <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+                <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
-                {/* Form */}
-                <View style={styles.form}>
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Email</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Enter your email"
-                            placeholderTextColor={colors.textSecondary}
-                            value={email}
-                            onChangeText={setEmail}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            autoComplete="email"
-                            textContentType="emailAddress"
-                        />
-                    </View>
+                    {/* Back Link */}
+                    <Pressable style={styles.backLink} onPress={() => { }}>
+                        <ArrowLeft size={14} color={colors.accent} />
+                        <Text style={styles.backText}>RETURN TO ARCHIVE</Text>
+                    </Pressable>
 
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Password</Text>
+                    {/* Title */}
+                    <Text style={styles.title}>Login</Text>
+                    <Text style={styles.subtitle}>Enter your credentials to access the journal.</Text>
+
+                    {/* Error */}
+                    {error ? (
+                        <View style={styles.errorBox}>
+                            <Text style={styles.errorText}>{error}</Text>
+                        </View>
+                    ) : null}
+
+                    {/* Email */}
+                    <Text style={styles.label}>EMAIL</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={email}
+                        onChangeText={setEmail}
+                        placeholder="researcher@institute.edu"
+                        placeholderTextColor={colors.textSecondary + '60'}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        textContentType="emailAddress"
+                    />
+
+                    {/* Password */}
+                    <Text style={styles.label}>PASSWORD</Text>
+                    <View style={styles.passwordRow}>
                         <TextInput
-                            style={styles.input}
-                            placeholder="Enter your password"
-                            placeholderTextColor={colors.textSecondary}
+                            style={[styles.input, { flex: 1, marginBottom: 0 }]}
                             value={password}
                             onChangeText={setPassword}
-                            secureTextEntry
-                            autoComplete="password"
+                            placeholder="••••••••"
+                            placeholderTextColor={colors.textSecondary + '60'}
+                            secureTextEntry={!showPassword}
                             textContentType="password"
                         />
+                        <Pressable
+                            style={styles.eyeButton}
+                            onPress={() => setShowPassword(!showPassword)}
+                            hitSlop={8}
+                        >
+                            {showPassword ? (
+                                <EyeOff size={18} color={colors.textSecondary} />
+                            ) : (
+                                <Eye size={18} color={colors.textSecondary} />
+                            )}
+                        </Pressable>
                     </View>
 
+                    {/* Login Button */}
                     <Pressable
-                        style={({ pressed }) => [
-                            styles.button,
-                            pressed && styles.buttonPressed,
-                            loading && styles.buttonDisabled,
-                        ]}
+                        style={({ pressed }) => [styles.loginButton, pressed && { opacity: 0.9, transform: [{ scale: 0.97 }] }]}
                         onPress={handleLogin}
                         disabled={loading}
                     >
                         {loading ? (
-                            <ActivityIndicator color={colors.bg} />
+                            <ActivityIndicator color={botanical.ink} />
                         ) : (
-                            <Text style={styles.buttonText}>Sign In</Text>
+                            <Text style={styles.loginButtonText}>LOGIN</Text>
                         )}
                     </Pressable>
-                </View>
 
-                {/* Footer */}
-                <View style={styles.footer}>
-                    <Text style={styles.footerText}>Don't have an account? </Text>
-                    <Link href="/(auth)/signup" asChild>
-                        <Pressable>
-                            <Text style={styles.linkText}>Create account</Text>
-                        </Pressable>
-                    </Link>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+                    {/* Signup Link */}
+                    <Text style={styles.switchText}>No profile recorded?</Text>
+                    <Pressable
+                        style={({ pressed }) => [styles.createButton, pressed && { opacity: 0.9 }]}
+                        onPress={() => router.push('/(auth)/signup')}
+                    >
+                        <Text style={styles.createButtonText}>CREATE ACCOUNT</Text>
+                    </Pressable>
+
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 
 function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors']) {
     return StyleSheet.create({
-        container: {
-            flex: 1,
-            backgroundColor: colors.bg,
-        },
+        container: { flex: 1, backgroundColor: colors.bg },
         scroll: {
-            flexGrow: 1,
-            justifyContent: 'center',
             paddingHorizontal: spacing.lg,
-            paddingVertical: spacing['2xl'],
+            paddingTop: spacing['2xl'],
+            paddingBottom: spacing['2xl'],
         },
-        header: {
+        backLink: {
+            flexDirection: 'row',
             alignItems: 'center',
-            marginBottom: spacing['2xl'],
+            gap: spacing.xs,
+            marginBottom: spacing.xl,
         },
-        logoText: {
-            fontSize: fontSize['3xl'],
-            fontWeight: '300',
+        backText: {
+            fontFamily: fonts.mono,
+            fontSize: fontSize.xs,
             color: colors.accent,
-            letterSpacing: 4,
-            textTransform: 'uppercase',
+            letterSpacing: 1,
+        },
+        title: {
+            fontFamily: fonts.displayBoldItalic,
+            fontSize: fontSize['4xl'],
+            color: colors.text,
             marginBottom: spacing.sm,
         },
         subtitle: {
-            fontSize: fontSize.lg,
+            fontFamily: fonts.body,
+            fontSize: fontSize.md,
             color: colors.textSecondary,
+            marginBottom: spacing.xl,
         },
-        form: {
-            gap: spacing.md,
+        errorBox: {
+            backgroundColor: '#ef444415',
+            borderWidth: 1,
+            borderColor: '#ef444430',
+            borderRadius: radii.md,
+            padding: spacing.md,
+            marginBottom: spacing.md,
         },
-        inputGroup: {
-            gap: spacing.xs,
+        errorText: {
+            fontFamily: fonts.mono,
+            fontSize: fontSize.xs,
+            color: '#ef4444',
         },
         label: {
-            fontSize: fontSize.sm,
-            color: colors.textSecondary,
-            fontWeight: '500',
-            marginLeft: spacing.xs,
+            fontFamily: fonts.monoBold,
+            fontSize: fontSize.xs,
+            color: colors.text,
+            letterSpacing: 1.5,
+            marginBottom: spacing.sm,
+            marginTop: spacing.md,
         },
         input: {
             backgroundColor: colors.surface,
@@ -188,42 +213,64 @@ function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors'])
             borderColor: colors.border,
             borderRadius: radii.md,
             paddingHorizontal: spacing.md,
-            paddingVertical: spacing.md,
+            paddingVertical: spacing.md + 2,
+            fontFamily: fonts.body,
             fontSize: fontSize.md,
             color: colors.text,
+            marginBottom: spacing.md,
         },
-        button: {
-            backgroundColor: colors.accent,
-            borderRadius: radii.md,
-            paddingVertical: spacing.md,
-            alignItems: 'center',
-            marginTop: spacing.sm,
-        },
-        buttonPressed: {
-            opacity: 0.85,
-            transform: [{ scale: 0.98 }],
-        },
-        buttonDisabled: {
-            opacity: 0.6,
-        },
-        buttonText: {
-            fontSize: fontSize.md,
-            fontWeight: '700',
-            color: '#1a1a18',
-        },
-        footer: {
+        passwordRow: {
             flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: spacing.md,
+        },
+        eyeButton: {
+            position: 'absolute',
+            right: spacing.md,
+            top: spacing.md + 2,
+        },
+        loginButton: {
+            backgroundColor: colors.accent,
+            borderRadius: radii.xl,
+            paddingVertical: spacing.md + 4,
+            alignItems: 'center',
             justifyContent: 'center',
-            marginTop: spacing.xl,
+            marginTop: spacing.lg,
+            minHeight: 52,
+            shadowColor: colors.accent,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.2,
+            shadowRadius: 24,
+            elevation: 4,
         },
-        footerText: {
-            fontSize: fontSize.sm,
+        loginButtonText: {
+            fontFamily: fonts.monoBold,
+            fontSize: fontSize.md,
+            color: botanical.ink,
+            letterSpacing: 2,
+        },
+        switchText: {
+            fontFamily: fonts.body,
+            fontSize: fontSize.md,
             color: colors.textSecondary,
+            textAlign: 'center',
+            marginTop: spacing.xl,
+            marginBottom: spacing.md,
         },
-        linkText: {
+        createButton: {
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: radii.xl,
+            paddingVertical: spacing.md + 4,
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 52,
+        },
+        createButtonText: {
+            fontFamily: fonts.monoBold,
             fontSize: fontSize.sm,
-            color: colors.accent,
-            fontWeight: '600',
+            color: botanical.forest,
+            letterSpacing: 2,
         },
     });
 }
