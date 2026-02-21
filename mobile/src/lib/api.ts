@@ -56,6 +56,7 @@ export interface LoginResponse {
         isOwner: boolean;
         streakData: Record<string, unknown>;
         twoFAEnabled: boolean;
+        petCustomization?: string;
     };
 }
 
@@ -83,7 +84,7 @@ export const api = {
     logout: () =>
         request<{ message: string }>('/auth/logout', { method: 'POST' }),
 
-    updateProfile: (data: { username?: string; bio?: string; avatar?: string }) =>
+    updateProfile: (data: { username?: string; bio?: string; avatar?: string; petCustomization?: string | null }) =>
         request<LoginResponse['user']>('/auth/profile', {
             method: 'PUT',
             body: JSON.stringify(data),
@@ -345,6 +346,11 @@ export interface UserProfile extends UserSearchResult {
     deckCount: number;
     friendshipStatus: string | null;
     friendshipDirection: string | null;
+    streak?: number;
+    petCustomization?: string;
+    stats?: {
+        decksCreated?: number;
+    };
 }
 
 export interface Friend {

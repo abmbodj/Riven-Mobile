@@ -1,5 +1,6 @@
 import { View, Pressable, StyleSheet, Text } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
+import { BlurView } from 'expo-blur';
 import { Home, Sprout, Palette, User } from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/themeStore';
 import { botanical, fonts, spacing, fontSize } from '../../src/constants/tokens';
@@ -15,6 +16,9 @@ export default function TabLayout() {
                 tabBarShowLabel: true,
                 tabBarActiveTintColor: colors.accent,
                 tabBarInactiveTintColor: colors.textSecondary,
+                tabBarBackground: () => (
+                    <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill} />
+                ),
                 tabBarLabelStyle: {
                     fontFamily: fonts.mono,
                     fontSize: 10,
@@ -23,7 +27,8 @@ export default function TabLayout() {
                     marginTop: -2,
                 },
                 tabBarStyle: {
-                    backgroundColor: 'rgba(22, 42, 49, 0.92)',
+                    position: 'absolute',
+                    backgroundColor: 'rgba(22, 42, 49, 0.5)',
                     borderTopColor: colors.border + '99',
                     borderTopWidth: 1,
                     height: 80,

@@ -13,6 +13,7 @@ export interface User {
     isOwner: boolean;
     streakData: Record<string, unknown>;
     twoFAEnabled: boolean;
+    petCustomization?: string;
 }
 
 interface AuthState {

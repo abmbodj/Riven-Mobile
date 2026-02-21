@@ -4,6 +4,7 @@ import { Stack, useRouter, useSegments, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
+import GlobalBackground from '../src/components/GlobalBackground';
 import {
     CormorantGaramond_400Regular,
     CormorantGaramond_400Regular_Italic,
@@ -63,6 +64,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
                             isOwner: userData.isOwner || false,
                             streakData: userData.streakData || {},
                             twoFAEnabled: userData.twoFAEnabled || false,
+                            petCustomization: userData.petCustomization,
                         }, token);
                     } else {
                         setLoading(false);
@@ -130,10 +132,12 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
             <StatusBar style="light" />
             <AuthGate>
+                <GlobalBackground />
+                <GlobalBackground />
                 <Stack
                     screenOptions={{
                         headerShown: false,
-                        contentStyle: { backgroundColor: colors.bg },
+                        contentStyle: { backgroundColor: 'transparent' },
                         animation: 'slide_from_right',
                     }}
                 >

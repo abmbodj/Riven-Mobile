@@ -6,8 +6,10 @@ import {
     Pressable,
     StyleSheet,
     RefreshControl,
+    ImageBackground,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import GardenHero from '../../src/components/GardenHero';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -52,7 +54,11 @@ export default function HomeScreen() {
                 <View style={styles.specimenPin} />
 
                 {/* Paper gradient overlay */}
-                <View style={styles.paperOverlay} />
+                <ImageBackground
+                    source={{ uri: 'https://www.transparenttextures.com/patterns/natural-paper.png' }}
+                    style={StyleSheet.absoluteFill}
+                    imageStyle={{ opacity: 0.5 }}
+                />
 
                 {/* Content */}
                 <View style={styles.deckContent}>
@@ -103,8 +109,11 @@ export default function HomeScreen() {
             {/* Header */}
             <View style={styles.header}>
                 <View>
-                    <View style={styles.tagBadge}>
-                        <Text style={styles.tagBadgeText}>LIBRARY</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <View style={[styles.tagBadge, { marginBottom: 0 }]}>
+                            <Text style={styles.tagBadgeText}>LIBRARY</Text>
+                        </View>
+                        <GardenHero />
                     </View>
                     <Text style={styles.pageTitle}>Decks</Text>
                 </View>
@@ -174,7 +183,7 @@ export default function HomeScreen() {
 
 function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors']) {
     return StyleSheet.create({
-        container: { flex: 1, backgroundColor: colors.bg },
+        container: { flex: 1, backgroundColor: 'transparent' },
         header: {
             flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
             paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.md,

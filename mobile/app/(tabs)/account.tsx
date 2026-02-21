@@ -5,6 +5,7 @@ import {
     StyleSheet,
     ScrollView,
     Alert,
+    ImageBackground,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -71,7 +72,11 @@ export default function AccountScreen() {
                 {/* Profile Card — Herbarium Style */}
                 <View style={styles.profileCard}>
                     {/* Paper overlay */}
-                    <View style={styles.paperOverlay} />
+                    <ImageBackground
+                        source={{ uri: 'https://www.transparenttextures.com/patterns/natural-paper.png' }}
+                        style={StyleSheet.absoluteFill}
+                        imageStyle={{ opacity: 0.5 }}
+                    />
                     {/* Tape accent */}
                     <View style={styles.tapeAccent} />
 
@@ -129,7 +134,7 @@ export default function AccountScreen() {
 
 function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors']) {
     return StyleSheet.create({
-        container: { flex: 1, backgroundColor: colors.bg },
+        container: { flex: 1, backgroundColor: 'transparent' },
         scroll: { paddingHorizontal: spacing.md, paddingVertical: spacing.lg, gap: spacing.lg },
         header: { paddingHorizontal: spacing.xs },
         tagBadge: {

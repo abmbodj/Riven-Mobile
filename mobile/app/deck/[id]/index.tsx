@@ -226,7 +226,7 @@ export default function DeckViewScreen() {
 
 function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors']) {
     return StyleSheet.create({
-        container: { flex: 1, backgroundColor: colors.bg },
+        container: { flex: 1, backgroundColor: 'transparent' },
         loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
         errorText: { fontSize: fontSize.lg, color: colors.textSecondary },
         header: {

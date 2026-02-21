@@ -12,20 +12,7 @@ import { ArrowLeft, Sprout, TreeDeciduous, Flower2, Sun, Crown } from 'lucide-re
 import { useThemeStore } from '../../src/stores/themeStore';
 import { useAuthStore } from '../../src/stores/authStore';
 import { spacing, radii, fontSize, cardShadow } from '../../src/constants/tokens';
-
-const GARDEN_STAGES = [
-    { days: 0, name: 'Barren Plot', icon: '🏜️', description: 'Your garden awaits its first seeds...' },
-    { days: 1, name: 'Seeded Soil', icon: '🌱', description: 'The first seeds have been planted!' },
-    { days: 3, name: 'Tiny Sprout', icon: '🌿', description: 'A small sprout peeks through the soil.' },
-    { days: 7, name: 'Seedling', icon: '🪴', description: 'Your seedling is growing stronger.' },
-    { days: 14, name: 'Young Plant', icon: '🌳', description: 'A young plant reaches for the sun.' },
-    { days: 30, name: 'Budding Garden', icon: '🌸', description: 'Buds are forming on your plant!' },
-    { days: 60, name: 'Blooming Garden', icon: '🌺', description: 'Your garden is in full bloom!' },
-    { days: 100, name: 'Flourishing Oasis', icon: '🌴', description: 'An oasis of knowledge and growth.' },
-    { days: 200, name: 'Enchanted Grove', icon: '🍀', description: 'A magical grove of wisdom.' },
-    { days: 365, name: 'Ancient Forest', icon: '🌲', description: 'An ancient forest of learning.' },
-    { days: 1000, name: 'Celestial Eden', icon: '✨', description: 'You have achieved paradise!' },
-];
+import { GARDEN_STAGES } from '../../src/utils/gardenUtils';
 
 export default function GardenScreen() {
     const colors = useThemeStore((s) => s.colors);
@@ -128,7 +115,7 @@ export default function GardenScreen() {
 
 function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors']) {
     return StyleSheet.create({
-        container: { flex: 1, backgroundColor: colors.bg },
+        container: { flex: 1, backgroundColor: 'transparent' },
         header: {
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
             paddingHorizontal: spacing.md, paddingVertical: spacing.md,

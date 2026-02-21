@@ -156,7 +156,7 @@ export default function LoginScreen() {
 
 function makeStyles(colors: ReturnType<typeof useThemeStore.getState>['colors']) {
     return StyleSheet.create({
-        container: { flex: 1, backgroundColor: colors.bg },
+        container: { flex: 1, backgroundColor: 'transparent' },
         scroll: {
             paddingHorizontal: spacing.lg,
             paddingTop: spacing['2xl'],
