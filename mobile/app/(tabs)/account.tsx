@@ -18,6 +18,7 @@ import {
     MessageSquare,
     Shield,
     Sprout,
+    Pencil,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/themeStore';
 import { useAuthStore } from '../../src/stores/authStore';
@@ -50,12 +51,14 @@ export default function AccountScreen() {
     const styles = makeStyles(colors);
 
     const menuItems = [
+        { icon: Pencil, label: 'Edit Profile', onPress: () => router.push('/edit-profile') },
         { icon: Palette, label: 'Themes', onPress: () => router.push('/themes') },
         { icon: Sprout, label: 'Garden', onPress: () => router.push('/garden') },
         { icon: Users, label: 'Friends', onPress: () => router.push('/friends') },
         { icon: MessageSquare, label: 'Messages', onPress: () => router.push('/messages') },
+        { icon: Shield, label: 'Two-Factor Auth', onPress: () => router.push('/two-factor') },
         { icon: Settings, label: 'Settings', onPress: () => router.push('/settings') },
-        ...(user?.isAdmin ? [{ icon: Shield, label: 'Admin Panel', onPress: () => { } }] : []),
+        ...(user?.isAdmin || user?.isOwner ? [{ icon: Shield, label: 'Admin Panel', onPress: () => router.push('/admin') }] : []),
     ];
 
     return (

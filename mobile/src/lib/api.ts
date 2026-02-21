@@ -95,6 +95,27 @@ export const api = {
             body: JSON.stringify({ currentPassword, newPassword }),
         }),
 
+    // 2FA
+    setup2FA: () => request<{ qrCodeUrl: string; secret: string }>('/auth/2fa/setup', { method: 'POST' }),
+    verify2FA: (token: string) => request<{ message: string }>('/auth/2fa/verify', {
+        method: 'POST', body: JSON.stringify({ token }),
+    }),
+    disable2FA: (token: string) => request<{ message: string }>('/auth/2fa/disable', {
+        method: 'POST', body: JSON.stringify({ token }),
+    }),
+    login2FA: (tempToken: string, token: string) => request<LoginResponse>('/auth/2fa/login', {
+        method: 'POST', body: JSON.stringify({ tempToken, token }),
+    }),
+
+    // Admin
+    getAdminUsers: () => request<AdminUser[]>('/admin/users'),
+    updateUserRole: (userId: number, role: string) =>
+        request<{ message: string }>(`/admin/users/${userId}/role`, {
+            method: 'PUT', body: JSON.stringify({ role }),
+        }),
+    deleteUser: (userId: number) =>
+        request<{ message: string }>(`/admin/users/${userId}`, { method: 'DELETE' }),
+
     // Streak
     getStreak: () => request<Record<string, unknown>>('/auth/streak'),
     saveStreak: (streakData: Record<string, unknown>) =>
@@ -362,4 +383,18 @@ export interface Message {
     isRead: boolean;
     createdAt: string;
     isMine: boolean;
+}
+
+export interface AdminUser {
+    id: number;
+    username: string;
+    email: string;
+    avatar: string | null;
+    role: string;
+    isAdmin: boolean;
+    isOwner: boolean;
+    twoFAEnabled: boolean;
+    createdAt: string;
+    deckCount: number;
+    cardCount: number;
 }

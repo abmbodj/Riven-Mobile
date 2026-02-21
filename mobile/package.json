@@ -12,6 +12,7 @@
     "@shopify/flash-list": "2.0.2",
     "@tanstack/react-query": "^5.75.5",
     "expo": "~54.0.33",
+    "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.13",
     "expo-haptics": "~15.0.8",
     "expo-linking": "~8.0.11",
