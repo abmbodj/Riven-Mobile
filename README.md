@@ -1,6 +1,6 @@
 # Riven
 
-Riven is a feature-rich, full-stack flashcard and study application designed to help users learn efficiently. It combines powerful study tools like spaced repetition and deck organization with social features, gamification (streaks, pets), and a highly customizable UI.
+Riven is a feature-rich, full-stack flashcard and study application designed to help users learn efficiently. It combines powerful study tools like spaced repetition and deck organization with social features, gamification (streaks, pets), and a highly customizable UI. It features a responsive web application and a companion mobile app built with React Native.
 
 ## Key Features
 
@@ -11,24 +11,30 @@ Riven is a feature-rich, full-stack flashcard and study application designed to 
 - **Customizable UI**: Fully themable interface with user-defined colors and "Botanical Journal" aesthetic.
 - **Role-Based Access**: Granular permissions including User, Admin, and Owner roles.
 - **Security**: 2FA support using authenticator apps.
+- **Cross-Platform**: Accessible via web browser or native mobile app (iOS/Android).
 
 ## Tech Stack
 
-- **Language**: JavaScript (Node.js)
-- **Frontend**: React 19 (Vite), Tailwind CSS, Framer Motion, Lucide React
-- **Backend**: Express.js
+- **Language**: JavaScript/TypeScript (Node.js)
+- **Web Frontend (`client/`)**: React 19 (Vite), Tailwind CSS, Framer Motion, Lucide React
+- **Mobile App (`mobile/`)**: React Native, Expo Router, Zustand
+- **Backend (`server/`)**: Express.js 5
 - **Database**: PostgreSQL (via `pg` driver)
 - **Authentication**: JWT (JSON Web Tokens) + Bcrypt
-- **Testing**: Vitest (Unit & Integration)
-- **Deployment**: Vercel (Monorepo structure)
+- **Testing**: Vitest (Unit & Integration for Web and Server)
+- **Deployment**: Vercel (Monorepo structure for Web/API), Expo EAS (for Mobile)
 
 ## Prerequisites
 
 Before starting, ensure you have the following installed:
 
-- **Node.js** 20 or higher
-- **PostgreSQL** 15 or higher (or a cloud provider like Supabase/Railway)
+- **Node.js**: v20 or higher
+- **PostgreSQL**: v15 or higher (or a cloud provider like Supabase/Railway)
 - **npm** (comes with Node.js)
+- **Mobile Development** (Optional but required for `mobile/`):
+  - [Expo Go](https://expo.dev/go) app on your physical device, or
+  - Xcode (for iOS Simulator)
+  - Android Studio (for Android Emulator)
 
 ## Getting Started
 
@@ -41,7 +47,7 @@ cd riven
 
 ### 2. Install Dependencies
 
-You need to install dependencies for both the root, server, and client.
+You need to install dependencies for the root, server, client, and mobile apps.
 
 ```bash
 # Install root dependencies (concurrently)
@@ -51,8 +57,12 @@ npm install
 cd server
 npm install
 
-# Install client dependencies
+# Install web client dependencies
 cd ../client
+npm install
+
+# Install mobile app dependencies
+cd ../mobile
 npm install
 cd ..
 ```
@@ -75,7 +85,7 @@ Update `server/.env` with your credentials:
 | `PORT` | API Server port | `3000` |
 | `ALLOWED_ORIGINS` | CORS allowed origins | `http://localhost:5173,http://localhost:3000` |
 
-#### Client Configuration
+#### Web Client Configuration
 Create a `.env` file in the `client/` directory:
 
 ```bash
@@ -88,6 +98,9 @@ Update `client/.env`:
 |----------|-------------|---------------|
 | `VITE_API_URL` | Backend API URL | `http://localhost:3000/api` |
 
+#### Mobile Configuration
+If your mobile app requires connecting to your local development server, you will need to map the API URL to your machine's IP address (e.g., `http://192.168.1.x:3000/api`) instead of `localhost` so the physical device or emulator can reach it. Set this usually in a `.env` file in the `mobile/` directory (e.g., `EXPO_PUBLIC_API_URL`).
+
 ### 4. Database Setup
 
 Riven handles database initialization automatically. When the server starts, it checks for the existence of tables and creates them if missing (including seeding initial roles).
@@ -98,17 +111,25 @@ Ensure your PostgreSQL server is running and the database (e.g., `riven`) exists
 createdb riven
 ```
 
-### 5. Start Development Server
+### 5. Start Development Servers
 
-From the project root, run:
+You will typically run the complete stack utilizing two terminal windows.
 
+**Terminal 1: Web & API Server**
+From the project root, start both the web client and the backend server concurrently:
 ```bash
 npm start
 ```
-
-This uses `concurrently` to launch:
 - **Server**: `http://localhost:3000`
-- **Client**: `http://localhost:5173` (Vite)
+- **Web Client**: `http://localhost:5173` (Vite)
+
+**Terminal 2: Mobile App**
+If you are working on the mobile app, start the Expo development server in a new terminal:
+```bash
+cd mobile
+npm run start
+```
+Press `i` to open in iOS Simulator, `a` for Android Emulator, or scan the QR code with the Expo Go app on your physical device.
 
 ## Architecture
 
@@ -116,7 +137,7 @@ This uses `concurrently` to launch:
 
 ```
 riven/
-├── client/                 # React Frontend
+├── client/                 # React Web Frontend
 │   ├── src/
 │   │   ├── components/     # Reusable UI components
 │   │   ├── pages/          # Route components
@@ -124,22 +145,27 @@ riven/
 │   ├── public/             # Static assets
 │   ├── vite.config.js      # Vite configuration
 │   └── tailwind.config.js  # Tailwind configuration
+├── mobile/                 # React Native / Expo Mobile App
+│   ├── app/                # Expo Router screens based routing
+│   ├── src/                # Reusable components, hooks, stores
+│   ├── assets/             # Images and fonts
+│   └── app.json            # Expo configuration
 ├── server/                 # Express Backend
 │   ├── db.js               # Database connection & schema init
 │   ├── index.js            # Main application entry point
 │   ├── test/               # Backend tests
 │   └── package.json
-├── package.json            # Root scripts
-└── vercel.json             # Vercel deployment config
+├── package.json            # Root scripts (starts client & server)
+└── vercel.json             # Vercel deployment config for Web/API
 ```
 
 ### Request Lifecycle
 
-1.  **Client**: User interacts with React UI.
-2.  **API Call**: Frontend makes request to `VITE_API_URL` (e.g., `/api/login`).
-3.  **Server**: Express receives request, parses JSON body/cookies.
-4.  **Database**: `db.js` executes SQL query via `pg` pool.
-5.  **Response**: Server returns JSON data to Client.
+1.  **Client/Mobile**: User interacts with the React Web UI or React Native Mobile UI.
+2.  **API Call**: Frontend application makes an HTTP request to the API URL (e.g., `/api/login`).
+3.  **Server**: Express receives the request, parses the JSON body, and authenticates using cookies (Web) or tokens (Mobile).
+4.  **Database**: `db.js` executes the appropriate SQL query via the `pg` pool.
+5.  **Response**: Server returns JSON data to the requesting client app.
 
 ### Database Schema
 
@@ -149,25 +175,7 @@ Key tables include:
 - `study_sessions`: Analytics data.
 - `messages` / `friendships`: Social features.
 
-Database migrations are currently handled via auto-run SQL checks in `db.js`.
-
-## Environment Variables
-
-### Server (`server/.env`)
-
-| Variable | Required | Description |
-|----------|:--------:|-------------|
-| `DATABASE_URL` | Yes | Postgres connection string. |
-| `JWT_SECRET` | Yes | Key for signing/verifying JWTs. |
-| `PORT` | No | Port to listen on (default: `3000`). |
-| `NODE_ENV` | No | `development` or `production`. |
-| `ALLOWED_ORIGINS`| No | Comma-separated list of allowed CORS origins. |
-
-### Client (`client/.env`)
-
-| Variable | Required | Description |
-|----------|:--------:|-------------|
-| `VITE_API_URL` | Yes | URL of the backend API. |
+Database migrations are currently handled via auto-run SQL checks on server boot in `db.js`.
 
 ## Available Scripts
 
@@ -175,13 +183,21 @@ From the root directory:
 
 | Command | Description |
 |---------|-------------|
-| `npm start` | Runs both client and server in parallel (Development mode). |
-| `npm run server` | Runs only the server (dev mode with nodemon). |
-| `npm run client` | Runs only the client (dev mode with Vite). |
+| `npm start` | Runs both web client and backend server in parallel. |
+| `npm run server` | Runs only the backend server (with nodemon). |
+| `npm run client` | Runs only the web client (with Vite). |
+
+From the `mobile/` directory:
+
+| Command | Description |
+|---------|-------------|
+| `npm run start` | Start the Expo development server. |
+| `npm run ios` | Start Expo and attempt to launch the iOS Simulator. |
+| `npm run android` | Start Expo and attempt to launch the Android Emulator. |
 
 ## Testing
 
-Testing is implemented using **Vitest**.
+Testing for the API and Web Client is implemented using **Vitest**.
 
 ### Server Tests
 ```bash
@@ -189,7 +205,7 @@ cd server
 npm test
 ```
 
-### Client Tests
+### Web Client Tests
 ```bash
 cd client
 npm test
@@ -197,17 +213,14 @@ npm test
 
 ## Deployment
 
-### Vercel (Recommended)
+### Vercel (Recommended for Web & API)
 
-This repository is configured for monorepo deployment on Vercel.
+This repository is configured for monorepo deployment on Vercel handling both the Web Frontend and Express API.
 
-1.  Push code to GitHub.
-2.  Import project into Vercel.
-3.  **Root Directory**: Leave as `./`.
-4.  **Framework Preset**: Vite (for Client).
-5.  **Environment Variables**: Add all variables from `server/.env` and `client/.env` to the Vercel project settings.
-    *   Note: For `VITE_API_URL`, use `/api` if deployed on the same domain or the full URL.
-6.  `vercel.json` at the root handles routing `/api/*` requests to the server and other requests to the client.
+1.  Push code to GitHub and import the project into Vercel.
+2.  **Root Directory**: Leave as `./`.
+3.  **Framework Preset**: Vite.
+4.  **Environment Variables**: Add all variables from `server/.env` and `client/.env` to the Vercel project settings. Ensure `VITE_API_URL` is set to `/api`.
 
 **Configuration (`vercel.json`):**
 ```json
@@ -223,6 +236,18 @@ This repository is configured for monorepo deployment on Vercel.
 }
 ```
 
+### Expo EAS (Recommended for Mobile)
+
+To deploy the mobile application to Android (Play Store) or iOS (App Store), use Expo Application Services (EAS).
+
+1. Install the EAS CLI globally: `npm install -g eas-cli`
+2. Login to your Expo account: `eas login`
+3. Navigate to the mobile directory: `cd mobile`
+4. Configure the project: `eas build:configure`
+5. Build the apps:
+   - For Android: `eas build --platform android`
+   - For iOS: `eas build --platform ios`
+
 ## Troubleshooting
 
 ### Connection Refused (PostgreSQL)
@@ -233,6 +258,14 @@ This repository is configured for monorepo deployment on Vercel.
 **Error**: `JsonWebTokenError: invalid signature`
 **Solution**: Ensure `JWT_SECRET` in `.env` matches the one used to generate the token (or just restart auth flow after changing secret).
 
-### Client Build Failures
-**Error**: `Command not found: vite`
-**Solution**: Ensure you ran `npm install` inside the `client/` directory.
+### Mobile App Cannot Reach API
+**Error**: `Network Error` or hanging requests on Mobile Simulator/Physical device.
+**Solution**: Ensure your `API_URL` uses your computer's local network IP address (e.g., `192.168.1.100`), not `localhost`, because `localhost` refers to the mobile device itself. Ensure your computer's firewall allows incoming connections on port 3000.
+
+### Expo Bundle Issues
+**Error**: Weird styling issues or cached stale code in mobile app.
+**Solution**: Clear the Expo bundler cache by starting with the clear flag:
+```bash
+cd mobile
+npx expo start -c
+```
